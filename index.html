@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12615E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>SOXL 예약주문 계산기</title>
+<style>html{-webkit-text-size-adjust:100%}body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}</style>
+
+<style>
+:root{
+  --bg:#EEF1EF; --panel:#FFFFFF; --ink:#18212B; --muted:#5B6773; --line:#D5DCD8; --field:#F7F9F8;
+  --accent:#12615E; --accent-soft:#DCEDEA;
+  --buy:#C8323F; --buy-soft:#FBE9EB; --sell:#2152C4; --sell-soft:#E7EDFB;
+  --warn:#9A5B00; --warn-soft:#FFF1D6; --ok:#1F7A3E; --ok-soft:#E1F3E7;
+  --shadow:0 1px 2px rgba(24,33,43,.06),0 4px 16px rgba(24,33,43,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#10161B; --panel:#172027; --ink:#E6ECEA; --muted:#93A1AB; --line:#2A3740; --field:#1D2830;
+    --accent:#5FC2BC; --accent-soft:#18332F;
+    --buy:#FF6B78; --buy-soft:#3A1C21; --sell:#7EA2FF; --sell-soft:#1A2544;
+    --warn:#F2B55B; --warn-soft:#3A2B12; --ok:#6FD394; --ok-soft:#16301F;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#10161B; --panel:#172027; --ink:#E6ECEA; --muted:#93A1AB; --line:#2A3740; --field:#1D2830;
+  --accent:#5FC2BC; --accent-soft:#18332F;
+  --buy:#FF6B78; --buy-soft:#3A1C21; --sell:#7EA2FF; --sell-soft:#1A2544;
+  --warn:#F2B55B; --warn-soft:#3A2B12; --ok:#6FD394; --ok-soft:#16301F;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 48px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:1.45rem;font-weight:700;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);font-size:.9rem;margin:2px 0 0}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 12px;font-size:.88rem;font-weight:500}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] button.primary{color:#0D1A19}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) button.primary{color:#0D1A19}}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:20px;align-items:start}
+@media (max-width:880px){.grid{grid-template-columns:minmax(0,1fr)}.result{order:-1;position:static}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow)}
+.inputs{display:flex;flex-direction:column;gap:14px}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec h2{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600;display:flex;gap:8px;align-items:baseline}
+.sec h2 .n{font-family:ui-monospace,"Roboto Mono","Noto Sans Mono",monospace;color:var(--accent)}
+.sec p.hint{margin:0;color:var(--muted);font-size:.82rem}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.pair{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:6px;align-items:end}
+.pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted);font-weight:500}
+input{font-family:ui-monospace,"Roboto Mono","Noto Sans Mono",monospace;font-size:.95rem;font-variant-numeric:tabular-nums;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--field);color:var(--ink)}
+input.needs{border-color:var(--warn);background:var(--warn-soft)}
+details{border-top:1px dashed var(--line);padding-top:12px}
+summary{cursor:pointer;font-size:.85rem;color:var(--muted);font-weight:500}
+details[open] summary{margin-bottom:10px}
+.divider{height:1px;background:var(--line)}
+.result{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);display:flex;flex-direction:column;gap:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:.78rem;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--field);color:var(--muted);border:1px solid var(--line)}
+.chip.up{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.chip.start{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.chip.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.orders{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ord{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px 12px;border-top:1px solid var(--line)}
+.ord:first-child{border-top:0}
+.tag{font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.tag.b{background:var(--buy-soft);color:var(--buy)}
+.tag.s{background:var(--sell-soft);color:var(--sell)}
+.why{font-size:.76rem;color:var(--muted);line-height:1.35}
+.num{font-family:ui-monospace,"Roboto Mono","Noto Sans Mono",monospace;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.num .p{font-size:1.12rem;font-weight:600}
+.num .q{font-size:.85rem;color:var(--muted)}
+.ord.off .num .p{color:var(--muted);font-weight:400;font-family:system-ui,"Noto Sans KR",sans-serif;font-size:.9rem}
+.ord.b .num .p{color:var(--buy)} .ord.s .num .p{color:var(--sell)}
+.ord.off.b .num .p,.ord.off.s .num .p{color:var(--muted)}
+.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kv div{background:var(--field);border-radius:8px;padding:8px 10px}
+.kv span{display:block;font-size:.72rem;color:var(--muted)}
+.kv b{font-family:ui-monospace,"Roboto Mono","Noto Sans Mono",monospace;font-size:.92rem;font-weight:500;font-variant-numeric:tabular-nums}
+.note{font-size:.82rem;border-radius:8px;padding:9px 11px;background:var(--warn-soft);color:var(--warn)}
+.note button{margin-top:6px;padding:5px 9px;font-size:.8rem}
+.foot{color:var(--muted);font-size:.78rem;line-height:1.55}
+.row-actions{display:flex;flex-wrap:wrap;gap:8px}
+.toast{font-size:.82rem;color:var(--ok)}
+.toast:empty{display:none}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>SOXL 예약주문 계산기</h1>
+      <p class="sub">MA20 추천안 · 입력 칸을 채우면 오늘 걸 VWAP 예약주문 5건이 바로 나옵니다</p>
+    </div>
+    <div class="tools">
+      <button id="btnExample" type="button">예시 불러오기</button>
+      <button id="btnClear" type="button">전체 비우기</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <form class="panel inputs" id="form" autocomplete="off">
+      <section class="sec">
+        <h2><span class="n">1</span>오늘 상태</h2>
+        <div class="fields">
+          <label>주문일 (미국 날짜)<input id="date" type="date"></label>
+          <label>사이클시드<input id="seed" type="number" step="any" inputmode="decimal"></label>
+          <label>잔금<input id="cash" type="number" step="any" inputmode="decimal"></label>
+          <label>누적보유수<input id="hold" type="number" step="1" inputmode="numeric"></label>
+          <label>전일종가<input id="pc" type="number" step="any" inputmode="decimal"></label>
+          <label>20일 이동평균 (MA20)<input id="ma" type="number" step="any" inputmode="decimal"></label>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+      <section class="sec">
+        <h2><span class="n">2</span>전일 체결 결과</h2>
+        <p class="hint">체결이 없었으면 0 또는 빈칸. 매도는 여러 주문이 체결돼도 합계 개수와 평균 체결가를 넣으세요.</p>
+        <div class="fields">
+          <label>전일매수체결가<input id="bp" type="number" step="any" inputmode="decimal"></label>
+          <label>전일매수개수<input id="bn" type="number" step="1" inputmode="numeric"></label>
+          <label>전일매도체결가<input id="sp" type="number" step="any" inputmode="decimal"></label>
+          <label>전일매도개수<input id="sn" type="number" step="1" inputmode="numeric"></label>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+      <section class="sec">
+        <h2><span class="n">3</span>전일에 걸었던 예약주문</h2>
+        <p class="hint">어제 이 계산기로 낸 주문. 결과 카드의 "내일 준비" 버튼을 쓰면 자동으로 채워집니다.</p>
+        <div class="pairs">
+          <div class="pair"><label>매수예약가1<input id="yb1" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yq1" type="number" step="1" inputmode="numeric"></label></div>
+          <div class="pair"><label>매수예약가2<input id="yb2" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yq2" type="number" step="1" inputmode="numeric"></label></div>
+          <div class="pair"><label>매도예약가1<input id="ys1" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yn1" type="number" step="1" inputmode="numeric"></label></div>
+          <div class="pair"><label>매도예약가2<input id="ys2" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yn2" type="number" step="1" inputmode="numeric"></label></div>
+          <div class="pair"><label>매도예약가3<input id="ys3" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yn3" type="number" step="1" inputmode="numeric"></label></div>
+        </div>
+      </section>
+
+      <details id="waitBox">
+        <summary>대기 로트 (선택 · 계산기가 "대기로 넘기세요"라고 할 때만)</summary>
+        <div class="pairs">
+          <div class="pair"><label>대기 로트 1 · 마지막 매도가<input id="w1p" type="number" step="any" inputmode="decimal"></label><label>개수<input id="w1q" type="number" step="1" inputmode="numeric"></label></div>
+          <label>대기 로트 1 · 마지막 주문일<input id="w1d" type="date"></label>
+          <div class="pair"><label>대기 로트 2 · 마지막 매도가<input id="w2p" type="number" step="any" inputmode="decimal"></label><label>개수<input id="w2q" type="number" step="1" inputmode="numeric"></label></div>
+          <label>대기 로트 2 · 마지막 주문일<input id="w2d" type="date"></label>
+        </div>
+      </details>
+    </form>
+
+    <aside class="panel result" aria-live="polite">
+      <div class="chips" id="chips"></div>
+      <div class="orders" id="orders"></div>
+      <div id="notes"></div>
+      <div class="kv">
+        <div><span>기준가 V</span><b id="kV">–</b></div>
+        <div><span>현금 사용비율</span><b id="kU">–</b></div>
+        <div><span>1건 주문금액</span><b id="kUnit">–</b></div>
+      </div>
+      <div class="row-actions">
+        <button id="btnCopy" type="button">결과 복사</button>
+        <button id="btnNext" class="primary" type="button">내일 준비 →</button>
+      </div>
+      <div class="toast" id="toast"></div>
+      <p class="foot">"내일 준비"를 누르면 오늘 결과가 ③ 전일 예약주문으로 옮겨지고 날짜가 다음 거래일로 넘어갑니다. 장 마감 후 <b>잔금 · 누적보유수 · 전일종가 · MA20 · 전일 체결</b>만 새로 채우면 됩니다 (노란 테두리).</p>
+      <p class="foot">규칙: 전일종가가 MA20보다 위면 매도3 +3.5%, 매도3 개수는 항상 1.2배. 나머지는 강사 방식 재현 공식. 2010~2026 백테스트 연평균 42.2%, 최대낙폭 −38%. 과거 성과가 미래를 보장하지 않습니다.</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+  const HOL=new Set(['2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25',
+    '2027-01-01','2027-01-18','2027-02-15','2027-03-26','2027-05-31','2027-06-18','2027-07-05','2027-09-06','2027-11-25','2027-12-24']);
+  const IDS=['date','seed','cash','hold','pc','ma','bp','bn','sp','sn','yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3','w1p','w1q','w1d','w2p','w2q','w2d'];
+  const $=id=>document.getElementById(id);
+  const num=id=>{const v=parseFloat($(id).value);return isFinite(v)?v:0};
+  const r2=x=>Math.floor(x*100+0.5)/100;
+  const f2=x=>x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const iso=d=>d.toISOString().slice(0,10);
+  const parse=s=>{if(!s)return null;const d=new Date(s+'T12:00:00Z');return isNaN(d)?null:d};
+  const isTrade=d=>{const w=d.getUTCDay();return w!==0&&w!==6&&!HOL.has(iso(d))};
+  const step=(d,dir)=>{let x=new Date(d);do{x.setUTCDate(x.getUTCDate()+dir)}while(!isTrade(x));return x};
+  const tradingDaysAfter=(a,b)=>{let n=0,x=new Date(a);while(x<b){x.setUTCDate(x.getUTCDate()+1);if(x<=b&&isTrade(x))n++}return n};
+  const isMon=d=>d&&d.getUTCDay()===1;
+
+  const EXAMPLE={date:'2026-08-13',seed:10000,cash:6230,hold:30,pc:142.16,ma:132.69,bp:0,bn:0,sp:142.90,sn:11,
+    yb1:129.72,yq1:5,yb2:132.48,yq2:5,ys1:153.26,yn1:5,ys2:135.42,yn2:6,ys3:133.02,yn3:5};
+
+  let last=null;
+
+  function calc(){
+    const D=parse($('date').value), seed=num('seed'), cash=num('cash'), hold=Math.round(num('hold')), pc=num('pc'), ma=num('ma');
+    const bp=num('bp'), bn=num('bn'), sp=num('sp'), sn=num('sn');
+    const chips=[], notes=[];
+    if(!(seed>0&&pc>0)){render(null,chips,['사이클시드와 전일종가를 넣으면 계산이 시작됩니다.']);return}
+    const V=(bn+sn)>0?(bp*bn+sp*sn)/(bn+sn):pc;
+    const u=1-cash/seed, U=seed/14, start=hold===0;
+    const up=ma>0&&pc>ma, mon=isMon(D), prev=D?step(D,-1):null, pmon=isMon(prev);
+    const o={};
+    o.b1=start?r2(pc*1.07-0.04):r2(V*(1-0.042*u));
+    o.q1=Math.floor(U/o.b1);
+    o.b2=r2(Math.min(pc*0.999,V-0.02));
+    o.q2=start?Math.floor(U/o.b2):Math.floor(U/o.b2+0.5);
+    o.s1=[0,0];o.s2=[0,0];o.s3=[0,0];
+    if(start){
+      chips.push(['start','사이클 시작일']);
+      if(Math.abs(seed-cash)>0.005) notes.push({t:'보유수가 0이면 새 사이클입니다. 사이클시드를 잔금('+f2(cash)+')으로 바꿔야 정확합니다.',fix:'seed'});
+    }else{
+      chips.push(['','진행 중 · '+hold+'주 보유']);
+      // yesterday sells: lowest price fills first
+      const ys=[[num('ys1'),num('yn1')],[num('ys2'),num('yn2')],[num('ys3'),num('yn3')]];
+      const fill=i=>{const [p,n]=ys[i];if(!(p>0))return 0;let lower=0;ys.forEach(([q,m],j)=>{if(j!==i&&q>0&&q<p)lower+=m});return Math.max(0,Math.min(n,sn-lower))};
+      const adj=-0.001-(pmon?0.001:0)+(mon?0.001:0);
+      const cand=[];
+      [['w2',1],['w1',2]].forEach(([w,seq])=>{const p=num(w+'p'),q=num(w+'q'),wd=parse($(w+'d').value);
+        if(p>0&&q>=3&&wd&&D){const k=tradingDaysAfter(wd,D);cand.push({p:r2(p*(1-0.001*k-(isMon(wd)?0.001:0)+(mon?0.001:0))),q,seq,src:'대기 로트'})}});
+      [[0,3],[1,4]].forEach(([i,seq])=>{const [p,n]=ys[i];const q=n-fill(i);if(p>0&&q>=3)cand.push({p:r2(p*(1+adj)),q,seq,src:'전일 매도예약'+(i+1)+' 잔량'})});
+      const yb1=num('yb1'),yq1=num('yq1'),yb2=num('yb2'),yq2=num('yq2');
+      const nq=bn>0?(yb1>=yb2?Math.max(0,bn-yq1):Math.min(bn,yq2)):0;
+      if(nq>=3&&bp>0)cand.push({p:r2(bp*(1.0015+(mon?0.001:0))),q:nq,seq:5,src:'신규 로트'});
+      cand.sort((a,b)=>b.seq-a.seq);
+      if(cand[0])o.s2=[cand[0].p,cand[0].q,cand[0].src];
+      if(cand[1])o.s1=[cand[1].p,cand[1].q,cand[1].src];
+      if(cand.length>2){const c=cand[2];notes.push({t:'로트가 3개입니다. '+f2(c.p)+' × '+c.q+'주를 대기 로트 칸에 적어 두세요 (마지막 주문일: '+(D?iso(D):'오늘')+').'})}
+      o.s3p=r2(Math.max(pc+0.02,pc*(1+0.004+(up?0.035:0)+0.64*(V/pc-1))));
+      const lq=o.s1[1]+o.s2[1];
+      o.s3=[o.s3p, lq>0?Math.max(0,Math.min(hold-lq,Math.floor(1.2*U/V))):hold];
+      chips.push(up?['up','상승추세 · 매도3 +3.5%']:['','MA20 아래 · 기본 매도3']);
+    }
+    if(!D)notes.push({t:'주문일을 넣으면 월요일 보정과 대기 로트 계산이 정확해집니다.'});
+    if(cash>seed+0.005)notes.push({t:'잔금이 사이클시드보다 큽니다. 입력값을 확인하세요.'});
+    last={o,start,D};
+    $('kV').textContent=f2(V); $('kU').textContent=(u*100).toFixed(1)+'%'; $('kUnit').textContent=f2(U);
+    render(o,chips,notes);
+  }
+
+  function row(side,label,price,qty,why){
+    const off=!(price>0&&qty>0);
+    return `<div class="ord ${side}${off?' off':''}"><span class="tag ${side}">${label}</span><span class="why">${why}</span>
+      <span class="num"><span class="p">${off?'주문 없음':f2(price)}</span>${off?'':`<br><span class="q">× ${qty}주</span>`}</span></div>`;
+  }
+  function render(o,chips,notes){
+    $('chips').innerHTML=chips.map(([c,t])=>`<span class="chip ${c}">${t}</span>`).join('');
+    $('notes').innerHTML=notes.map((n,i)=>`<div class="note">${n.t||n}${n.fix?`<br><button type="button" data-fix="${n.fix}">사이클시드 = 잔금으로 바꾸기</button>`:''}</div>`).join('');
+    const nb=$('notes').querySelector('[data-fix]'); if(nb)nb.onclick=()=>{$('seed').value=$('cash').value;save();calc()};
+    if(!o){$('orders').innerHTML='';['kV','kU','kUnit'].forEach(k=>$(k).textContent='–');return}
+    $('orders').innerHTML=
+      row('b','매수1',o.b1,o.q1,last.start?'시작일: 전일종가 +7%':'기준가 V에서 사용비율만큼 낮게')+
+      row('b','매수2',o.b2,o.q2,'전일종가 −0.1% 또는 V −0.02 중 낮은 값')+
+      row('s','매도1',o.s1[0],o.s1[1],o.s1[2]||'두 번째 로트')+
+      row('s','매도2',o.s2[0],o.s2[1],o.s2[2]||'최신 로트')+
+      row('s','매도3',o.s3[0],o.s3[1],last.start?'사이클 시작일은 없음':'나머지 풀 · 개수 1.2배');
+  }
+
+  function save(){try{const s={};IDS.forEach(i=>s[i]=$(i).value);localStorage.setItem('soxl-ma20',JSON.stringify(s))}catch(e){}}
+  function load(){try{const s=JSON.parse(localStorage.getItem('soxl-ma20')||'null');if(s){IDS.forEach(i=>{if(s[i]!=null)$(i).value=s[i]});return true}}catch(e){}return false}
+  function fill(obj){IDS.forEach(i=>$(i).value=obj[i]!=null?obj[i]:'');document.querySelectorAll('input.needs').forEach(x=>x.classList.remove('needs'))}
+  function toast(t){$('toast').textContent=t;clearTimeout(toast._t);toast._t=setTimeout(()=>$('toast').textContent='',2600)}
+
+  $('form').addEventListener('input',e=>{if(e.target.classList)e.target.classList.remove('needs');save();calc()});
+  $('form').addEventListener('submit',e=>e.preventDefault());
+  $('btnExample').onclick=()=>{fill(EXAMPLE);save();calc();toast('예시 값으로 채웠습니다. 실제 값으로 바꿔서 쓰세요.')};
+  $('btnClear').onclick=()=>{fill({});save();calc();toast('입력값을 비웠습니다.')};
+  $('btnCopy').onclick=()=>{
+    if(!last)return;const o=last.o,d=last.D?iso(last.D):'';
+    const L=[`SOXL 예약주문 ${d}`,`매수1 ${f2(o.b1)} × ${o.q1}`,`매수2 ${f2(o.b2)} × ${o.q2}`];
+    [['매도1',o.s1],['매도2',o.s2],['매도3',o.s3]].forEach(([n,s])=>L.push(s[0]>0&&s[1]>0?`${n} ${f2(s[0])} × ${s[1]}`:`${n} 없음`));
+    const txt=L.join('\n');
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('주문 내용을 복사했습니다.'),()=>toast(txt.replace(/\n/g,' · ')))}else toast(txt.replace(/\n/g,' · '));
+  };
+  $('btnNext').onclick=()=>{
+    if(!last)return;const o=last.o;
+    const set=(id,v)=>{$(id).value=v>0?v:0};
+    set('yb1',o.b1);set('yq1',o.q1);set('yb2',o.b2);set('yq2',o.q2);
+    set('ys1',o.s1[0]);set('yn1',o.s1[1]);set('ys2',o.s2[0]);set('yn2',o.s2[1]);set('ys3',o.s3[0]);set('yn3',o.s3[1]);
+    if(last.D)$('date').value=iso(step(last.D,1));
+    ['bp','bn','sp','sn'].forEach(i=>$(i).value='');
+    ['cash','hold','pc','ma','bp','bn','sp','sn'].forEach(i=>$(i).classList.add('needs'));
+    save();calc();toast('다음 거래일로 넘겼습니다. 노란 칸을 장 마감 결과로 채우세요.');
+    $('cash').focus();
+  };
+
+  if(!load())fill(EXAMPLE);
+  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
+  calc();
+})();
+</script>
+
+</body>
+</html>
