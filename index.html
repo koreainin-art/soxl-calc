@@ -12,7 +12,7 @@
 
 <style>
 :root{
-  --bg:#EEF1EF; --panel:#FFFFFF; --ink:#18212B; --muted:#5B6773; --line:#D5DCD8; --field:#F7F9F8;
+  --bg:#EEF1EF; --panel:#FFFFFF; --ink:#18212B; --muted:#5B6773; --line:#C4CEC9; --field:#FFFFFF; --fieldline:#9FB0A8;
   --accent:#12615E; --accent-soft:#DCEDEA;
   --buy:#C8323F; --buy-soft:#FBE9EB; --sell:#2152C4; --sell-soft:#E7EDFB;
   --warn:#9A5B00; --warn-soft:#FFF1D6; --ok:#1F7A3E; --ok-soft:#E1F3E7;
@@ -21,7 +21,7 @@
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     color-scheme:dark;
-    --bg:#10161B; --panel:#172027; --ink:#E6ECEA; --muted:#93A1AB; --line:#2A3740; --field:#1D2830;
+    --bg:#10161B; --panel:#172027; --ink:#E6ECEA; --muted:#93A1AB; --line:#2A3740; --field:#0D1317; --fieldline:#4A5C68;
     --accent:#5FC2BC; --accent-soft:#18332F;
     --buy:#FF6B78; --buy-soft:#3A1C21; --sell:#7EA2FF; --sell-soft:#1A2544;
     --warn:#F2B55B; --warn-soft:#3A2B12; --ok:#6FD394; --ok-soft:#16301F;
@@ -30,7 +30,7 @@
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#10161B; --panel:#172027; --ink:#E6ECEA; --muted:#93A1AB; --line:#2A3740; --field:#1D2830;
+  --bg:#10161B; --panel:#172027; --ink:#E6ECEA; --muted:#93A1AB; --line:#2A3740; --field:#0D1317; --fieldline:#4A5C68;
   --accent:#5FC2BC; --accent-soft:#18332F;
   --buy:#FF6B78; --buy-soft:#3A1C21; --sell:#7EA2FF; --sell-soft:#1A2544;
   --warn:#F2B55B; --warn-soft:#3A2B12; --ok:#6FD394; --ok-soft:#16301F;
@@ -50,7 +50,21 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 :root[data-theme="dark"] button.primary{color:#0D1A19}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) button.primary{color:#0D1A19}}
 .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:20px;align-items:start}
-@media (max-width:880px){.grid{grid-template-columns:minmax(0,1fr)}.result{order:-1;position:static}}
+.tabs,.mbar{display:none}
+@media (max-width:880px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .result{position:static}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+  .tabs button{border:0;border-radius:7px;padding:10px;font-size:.95rem;font-weight:600;background:transparent;color:var(--muted)}
+  .tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
+  body[data-tab="in"] .result{display:none}
+  body[data-tab="out"] .inputs{display:none}
+  body[data-tab="in"] .mbar{display:flex}
+  .mbar{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--panel);border-top:1px solid var(--line);gap:10px;align-items:center;justify-content:space-between}
+  .mbar span{font-family:ui-monospace,"Roboto Mono",monospace;font-size:.8rem;color:var(--muted);line-height:1.35;min-width:0}
+  .mbar button{flex:none}
+  body{padding-bottom:96px}
+}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow)}
 .inputs{display:flex;flex-direction:column;gap:14px}
 .sec{display:flex;flex-direction:column;gap:10px}
@@ -61,7 +75,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .pair{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:6px;align-items:end}
 .pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted);font-weight:500}
-input{font-family:ui-monospace,"Roboto Mono","Noto Sans Mono",monospace;font-size:.95rem;font-variant-numeric:tabular-nums;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--field);color:var(--ink)}
+input{border-width:1.5px!important;font-family:ui-monospace,"Roboto Mono","Noto Sans Mono",monospace;font-size:.95rem;font-variant-numeric:tabular-nums;width:100%;padding:8px 10px;border:1px solid var(--fieldline);border-radius:7px;background:var(--field);color:var(--ink);min-height:42px}
 input.needs{border-color:var(--warn);background:var(--warn-soft)}
 details{border-top:1px dashed var(--line);padding-top:12px}
 summary{cursor:pointer;font-size:.85rem;color:var(--muted);font-weight:500}
@@ -87,7 +101,7 @@ details[open] summary{margin-bottom:10px}
 .ord.b .num .p{color:var(--buy)} .ord.s .num .p{color:var(--sell)}
 .ord.off.b .num .p,.ord.off.s .num .p{color:var(--muted)}
 .kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.kv div{background:var(--field);border-radius:8px;padding:8px 10px}
+.kv div{background:var(--bg);border-radius:8px;padding:8px 10px}
 .kv span{display:block;font-size:.72rem;color:var(--muted)}
 .kv b{font-family:ui-monospace,"Roboto Mono","Noto Sans Mono",monospace;font-size:.92rem;font-weight:500;font-variant-numeric:tabular-nums}
 .note{font-size:.82rem;border-radius:8px;padding:9px 11px;background:var(--warn-soft);color:var(--warn)}
@@ -113,6 +127,7 @@ details[open] summary{margin-bottom:10px}
     </div>
   </header>
 
+  <div class="tabs" role="tablist"><button type="button" role="tab" id="tabIn" aria-selected="true">입력</button><button type="button" role="tab" id="tabOut" aria-selected="false">주문 결과</button></div>
   <div class="grid">
     <form class="panel inputs" id="form" autocomplete="off">
       <section class="sec">
@@ -183,6 +198,7 @@ details[open] summary{margin-bottom:10px}
   </div>
 </div>
 
+<div class="mbar" id="mbar"><span id="mbarTxt">–</span><button type="button" class="primary" id="mbarBtn">결과 보기</button></div>
 <script>
 (function(){
   const HOL=new Set(['2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25',
@@ -247,7 +263,7 @@ details[open] summary{margin-bottom:10px}
     if(cash>seed+0.005)notes.push({t:'잔금이 사이클시드보다 큽니다. 입력값을 확인하세요.'});
     last={o,start,D};
     $('kV').textContent=f2(V); $('kU').textContent=(u*100).toFixed(1)+'%'; $('kUnit').textContent=f2(U);
-    render(o,chips,notes);
+    render(o,chips,notes);mbar();
   }
 
   function row(side,label,price,qty,why){
@@ -268,6 +284,9 @@ details[open] summary{margin-bottom:10px}
       row('s','매도3',o.s3[0],o.s3[1],last.start?'사이클 시작일은 없음':'나머지 풀 · 개수 1.2배');
   }
 
+  function setTab(t){document.body.dataset.tab=t;$('tabIn').setAttribute('aria-selected',t==='in');$('tabOut').setAttribute('aria-selected',t==='out');window.scrollTo(0,0)}
+  function mbar(){if(!last){$('mbarTxt').textContent='입력값을 채워 주세요';return}const o=last.o;const n=[o.s1,o.s2,o.s3].filter(x=>x[0]>0&&x[1]>0).length;
+    $('mbarTxt').innerHTML='매수 '+f2(o.b1)+'×'+o.q1+' · '+f2(o.b2)+'×'+o.q2+'<br>매도 '+n+'건'}
   function save(){try{const s={};IDS.forEach(i=>s[i]=$(i).value);localStorage.setItem('soxl-ma20',JSON.stringify(s))}catch(e){}}
   function load(){try{const s=JSON.parse(localStorage.getItem('soxl-ma20')||'null');if(s){IDS.forEach(i=>{if(s[i]!=null)$(i).value=s[i]});return true}}catch(e){}return false}
   function fill(obj){IDS.forEach(i=>$(i).value=obj[i]!=null?obj[i]:'');document.querySelectorAll('input.needs').forEach(x=>x.classList.remove('needs'))}
@@ -293,9 +312,11 @@ details[open] summary{margin-bottom:10px}
     ['bp','bn','sp','sn'].forEach(i=>$(i).value='');
     ['cash','hold','pc','ma','bp','bn','sp','sn'].forEach(i=>$(i).classList.add('needs'));
     save();calc();toast('다음 거래일로 넘겼습니다. 노란 칸을 장 마감 결과로 채우세요.');
-    $('cash').focus();
+    setTab('in');$('cash').focus();
   };
 
+  $('tabIn').onclick=()=>setTab('in');$('tabOut').onclick=()=>setTab('out');$('mbarBtn').onclick=()=>setTab('out');
+  document.body.dataset.tab='in';
   if(!load())fill(EXAMPLE);
   if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
   calc();
