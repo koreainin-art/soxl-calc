@@ -54,11 +54,13 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 @media (max-width:880px){
   .grid{grid-template-columns:minmax(0,1fr)}
   .result{position:static}
-  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+  .tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
   .tabs button{border:0;border-radius:7px;padding:10px;font-size:.95rem;font-weight:600;background:transparent;color:var(--muted)}
   .tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
   body[data-tab="in"] .result{display:none}
   body[data-tab="out"] .inputs{display:none}
+  body[data-tab="log"] .grid{display:none}
+  body:not([data-tab="log"]) .logp{display:none}
   body[data-tab="in"] .mbar{display:flex}
   .mbar{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--panel);border-top:1px solid var(--line);gap:10px;align-items:center;justify-content:space-between}
   .mbar span{font-family:ui-monospace,"Roboto Mono",monospace;font-size:.8rem;color:var(--muted);line-height:1.35;min-width:0}
@@ -110,6 +112,25 @@ details[open] summary{margin-bottom:10px}
 .row-actions{display:flex;flex-wrap:wrap;gap:8px}
 .toast{font-size:.82rem;color:var(--ok)}
 .toast:empty{display:none}
+.dt{display:flex;gap:6px}
+.fields label.full{grid-column:1/-1}
+.dt input{flex:1;min-width:0}
+.dt button{flex:none;padding:0 10px;min-height:42px}
+.pick{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.logp{display:flex;flex-direction:column;gap:12px}
+.logp h2{font-size:1rem;margin:0}
+.loghead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.tblwrap{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px}
+table.log{border-collapse:collapse;font-size:.8rem;white-space:nowrap}
+table.log th,table.log td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+table.log th{position:sticky;top:0;background:var(--accent-soft);color:var(--ink);font-weight:600;z-index:1}
+table.log td{font-family:ui-monospace,"Roboto Mono",monospace}
+table.log td:first-child,table.log th:first-child{position:sticky;left:0;background:var(--panel);text-align:left;z-index:2}
+table.log th:first-child{background:var(--accent-soft);z-index:3}
+table.log td.z{color:var(--muted)}
+table.log td.neg{color:var(--buy)} table.log td.pos{color:var(--ok)}
+table.log button.del{padding:2px 7px;font-size:.75rem}
+.empty{color:var(--muted);font-size:.88rem;margin:0}
 </style>
 </head>
 <body>
@@ -119,26 +140,27 @@ details[open] summary{margin-bottom:10px}
   <header>
     <div>
       <h1>SOXL 예약주문 계산기</h1>
-      <p class="sub">MA20 추천안 · 입력 칸을 채우면 오늘 걸 VWAP 예약주문 5건이 바로 나옵니다</p>
+      <p class="sub">MA20 추천안 · 입력 칸을 채우면 오늘 걸 VWAP 예약주문 5건이 바로 나옵니다 · 저장하면 매일 기록이 쌓입니다</p>
     </div>
     <div class="tools">
-      <button id="btnExample" type="button">예시 불러오기</button>
+      <button id="btnExample" type="button">예시 불러오기 (8/13)</button>
       <button id="btnClear" type="button">전체 비우기</button>
     </div>
   </header>
 
-  <div class="tabs" role="tablist"><button type="button" role="tab" id="tabIn" aria-selected="true">입력</button><button type="button" role="tab" id="tabOut" aria-selected="false">주문 결과</button></div>
+  <div class="tabs" role="tablist"><button type="button" role="tab" id="tabIn" aria-selected="true">입력</button><button type="button" role="tab" id="tabOut" aria-selected="false">주문 결과</button><button type="button" role="tab" id="tabLog" aria-selected="false">기록</button></div>
   <div class="grid">
     <form class="panel inputs" id="form" autocomplete="off">
       <section class="sec">
         <h2><span class="n">1</span>오늘 상태</h2>
         <div class="fields">
-          <label>주문일 (미국 날짜)<input id="date" type="date"></label>
-          <label>사이클시드<input id="seed" type="number" step="any" inputmode="decimal"></label>
-          <label>잔금<input id="cash" type="number" step="any" inputmode="decimal"></label>
-          <label>누적보유수<input id="hold" type="number" step="1" inputmode="numeric"></label>
-          <label>전일종가<input id="pc" type="number" step="any" inputmode="decimal"></label>
-          <label>20일 이동평균 (MA20)<input id="ma" type="number" step="any" inputmode="decimal"></label>
+          <label class="full">주문일 (미국 날짜)<span class="dt"><input id="date" class="dtin" type="text" inputmode="numeric" placeholder="2026.09.28" maxlength="10"><button type="button" id="btnPick" aria-label="달력에서 고르기">📅</button></span><input id="datePick" class="pick" type="date" tabindex="-1" aria-hidden="true"></label>
+          <label>사이클차수<input id="cyc" type="text" inputmode="numeric" data-num></label>
+          <label>사이클시드<input id="seed" type="text" inputmode="decimal" data-num></label>
+          <label>잔금<input id="cash" type="text" inputmode="decimal" data-num></label>
+          <label>누적보유수<input id="hold" type="text" inputmode="numeric" data-num></label>
+          <label>전일종가<input id="pc" type="text" inputmode="decimal" data-num></label>
+          <label>20일 이동평균 (MA20)<input id="ma" type="text" inputmode="decimal" data-num></label>
         </div>
       </section>
 
@@ -147,10 +169,10 @@ details[open] summary{margin-bottom:10px}
         <h2><span class="n">2</span>전일 체결 결과</h2>
         <p class="hint">체결이 없었으면 0 또는 빈칸. 매도는 여러 주문이 체결돼도 합계 개수와 평균 체결가를 넣으세요.</p>
         <div class="fields">
-          <label>전일매수체결가<input id="bp" type="number" step="any" inputmode="decimal"></label>
-          <label>전일매수개수<input id="bn" type="number" step="1" inputmode="numeric"></label>
-          <label>전일매도체결가<input id="sp" type="number" step="any" inputmode="decimal"></label>
-          <label>전일매도개수<input id="sn" type="number" step="1" inputmode="numeric"></label>
+          <label>전일매수체결가<input id="bp" type="text" inputmode="decimal" data-num></label>
+          <label>전일매수개수<input id="bn" type="text" inputmode="numeric" data-num></label>
+          <label>전일매도체결가<input id="sp" type="text" inputmode="decimal" data-num></label>
+          <label>전일매도개수<input id="sn" type="text" inputmode="numeric" data-num></label>
         </div>
       </section>
 
@@ -159,22 +181,27 @@ details[open] summary{margin-bottom:10px}
         <h2><span class="n">3</span>전일에 걸었던 예약주문</h2>
         <p class="hint">어제 이 계산기로 낸 주문. 결과 카드의 "내일 준비" 버튼을 쓰면 자동으로 채워집니다.</p>
         <div class="pairs">
-          <div class="pair"><label>매수예약가1<input id="yb1" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yq1" type="number" step="1" inputmode="numeric"></label></div>
-          <div class="pair"><label>매수예약가2<input id="yb2" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yq2" type="number" step="1" inputmode="numeric"></label></div>
-          <div class="pair"><label>매도예약가1<input id="ys1" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yn1" type="number" step="1" inputmode="numeric"></label></div>
-          <div class="pair"><label>매도예약가2<input id="ys2" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yn2" type="number" step="1" inputmode="numeric"></label></div>
-          <div class="pair"><label>매도예약가3<input id="ys3" type="number" step="any" inputmode="decimal"></label><label>개수<input id="yn3" type="number" step="1" inputmode="numeric"></label></div>
+          <div class="pair"><label>매수예약가1<input id="yb1" type="text" inputmode="decimal" data-num></label><label>개수<input id="yq1" type="text" inputmode="numeric" data-num></label></div>
+          <div class="pair"><label>매수예약가2<input id="yb2" type="text" inputmode="decimal" data-num></label><label>개수<input id="yq2" type="text" inputmode="numeric" data-num></label></div>
+          <div class="pair"><label>매도예약가1<input id="ys1" type="text" inputmode="decimal" data-num></label><label>개수<input id="yn1" type="text" inputmode="numeric" data-num></label></div>
+          <div class="pair"><label>매도예약가2<input id="ys2" type="text" inputmode="decimal" data-num></label><label>개수<input id="yn2" type="text" inputmode="numeric" data-num></label></div>
+          <div class="pair"><label>매도예약가3<input id="ys3" type="text" inputmode="decimal" data-num></label><label>개수<input id="yn3" type="text" inputmode="numeric" data-num></label></div>
         </div>
       </section>
 
       <details id="waitBox">
         <summary>대기 로트 (선택 · 계산기가 "대기로 넘기세요"라고 할 때만)</summary>
         <div class="pairs">
-          <div class="pair"><label>대기 로트 1 · 마지막 매도가<input id="w1p" type="number" step="any" inputmode="decimal"></label><label>개수<input id="w1q" type="number" step="1" inputmode="numeric"></label></div>
-          <label>대기 로트 1 · 마지막 주문일<input id="w1d" type="date"></label>
-          <div class="pair"><label>대기 로트 2 · 마지막 매도가<input id="w2p" type="number" step="any" inputmode="decimal"></label><label>개수<input id="w2q" type="number" step="1" inputmode="numeric"></label></div>
-          <label>대기 로트 2 · 마지막 주문일<input id="w2d" type="date"></label>
+          <div class="pair"><label>대기 로트 1 · 마지막 매도가<input id="w1p" type="text" inputmode="decimal" data-num></label><label>개수<input id="w1q" type="text" inputmode="numeric" data-num></label></div>
+          <label>대기 로트 1 · 마지막 주문일<input id="w1d" class="dtin" type="text" inputmode="numeric" placeholder="2026.09.28" maxlength="10"></label>
+          <div class="pair"><label>대기 로트 2 · 마지막 매도가<input id="w2p" type="text" inputmode="decimal" data-num></label><label>개수<input id="w2q" type="text" inputmode="numeric" data-num></label></div>
+          <label>대기 로트 2 · 마지막 주문일<input id="w2d" class="dtin" type="text" inputmode="numeric" placeholder="2026.09.28" maxlength="10"></label>
         </div>
+      </details>
+      <details>
+        <summary>기록용 평단 (선택 · 기록 첫날만)</summary>
+        <p class="hint" style="margin:0 0 8px">평단과 당일실현은 저장된 전날 기록으로 자동 계산합니다. 기록이 없는 첫날만 증권사 앱의 평단을 넣으세요.</p>
+        <div class="fields"><label>전일평단<input id="avg" type="text" inputmode="decimal" data-num></label></div>
       </details>
     </form>
 
@@ -189,34 +216,54 @@ details[open] summary{margin-bottom:10px}
       </div>
       <div class="row-actions">
         <button id="btnCopy" type="button">결과 복사</button>
-        <button id="btnNext" class="primary" type="button">내일 준비 →</button>
+        <button id="btnSave" type="button">기록 저장</button>
+        <button id="btnNext" class="primary" type="button">저장하고 내일 준비 →</button>
       </div>
       <div class="toast" id="toast"></div>
-      <p class="foot">"내일 준비"를 누르면 오늘 결과가 ③ 전일 예약주문으로 옮겨지고 날짜가 다음 거래일로 넘어갑니다. 장 마감 후 <b>잔금 · 누적보유수 · 전일종가 · MA20 · 전일 체결</b>만 새로 채우면 됩니다 (노란 테두리).</p>
+      <p class="foot">"기록 저장"을 누르면 오늘 주문과 체결이 기록 탭에 한 줄로 쌓입니다 (같은 날짜는 덮어씀). "저장하고 내일 준비"를 누르면 저장한 뒤 오늘 결과가 ③ 전일 예약주문으로 옮겨지고 날짜가 다음 거래일로 넘어갑니다. 장 마감 후 <b>잔금 · 누적보유수 · 전일종가 · MA20 · 전일 체결</b>만 새로 채우면 됩니다 (노란 테두리).</p>
       <p class="foot">규칙: 전일종가가 MA20보다 위면 매도3 +3.5%, 매도3 개수는 항상 1.2배. 나머지는 강사 방식 재현 공식. 2010~2026 백테스트 연평균 42.2%, 최대낙폭 −38%. 과거 성과가 미래를 보장하지 않습니다.</p>
     </aside>
   </div>
+
+  <section class="panel logp" id="logPanel">
+    <div class="loghead">
+      <h2>매매 기록 <span id="logCount" class="chip"></span></h2>
+      <div class="tools">
+        <button type="button" id="btnImport">엑셀 불러오기</button>
+        <button type="button" class="primary" id="btnExport">엑셀로 내보내기</button>
+      </div>
+    </div>
+    <input type="file" id="fileImport" accept=".xlsx,.xls,.csv" hidden>
+    <div id="logBody"></div>
+    <p class="foot">열 구성은 원래 기록 엑셀과 같습니다 (A 날짜 ~ V 당일실현, W MA20). "엑셀 불러오기"로 기존 기록 파일을 넣으면 같은 날짜는 덮어쓰고 나머지는 합칩니다. 기록은 이 휴대폰 브라우저에만 저장되니 가끔 내보내기로 백업해 두세요.</p>
+    <div class="toast" id="toast2"></div>
+  </section>
 </div>
 
 <div class="mbar" id="mbar"><span id="mbarTxt">–</span><button type="button" class="primary" id="mbarBtn">결과 보기</button></div>
 <script>
+const XLSX_SRC='./xlsx.full.min.js';
 (function(){
   const HOL=new Set(['2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25',
     '2027-01-01','2027-01-18','2027-02-15','2027-03-26','2027-05-31','2027-06-18','2027-07-05','2027-09-06','2027-11-25','2027-12-24']);
-  const IDS=['date','seed','cash','hold','pc','ma','bp','bn','sp','sn','yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3','w1p','w1q','w1d','w2p','w2q','w2d'];
+  const IDS=['date','cyc','avg','seed','cash','hold','pc','ma','bp','bn','sp','sn','yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3','w1p','w1q','w1d','w2p','w2q','w2d'];
   const $=id=>document.getElementById(id);
-  const num=id=>{const v=parseFloat($(id).value);return isFinite(v)?v:0};
+  const pn=v=>{const x=parseFloat(String(v==null?'':v).replace(/,/g,''));return isFinite(x)?x:NaN};
+  const num=id=>{const v=pn($(id).value);return isFinite(v)?v:0};
+  const fmtIn=v=>{const x=pn(v);return isFinite(x)?x.toLocaleString('en-US',{maximumFractionDigits:6}):''};
+  const fi=x=>Math.round(x).toLocaleString('en-US');
   const r2=x=>Math.floor(x*100+0.5)/100;
   const f2=x=>x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const iso=d=>d.toISOString().slice(0,10);
-  const parse=s=>{if(!s)return null;const d=new Date(s+'T12:00:00Z');return isNaN(d)?null:d};
+  const parse=s=>{const g=String(s||'').replace(/\D/g,'');if(g.length!==8)return null;const d=new Date(g.slice(0,4)+'-'+g.slice(4,6)+'-'+g.slice(6)+'T12:00:00Z');return isNaN(d)?null:d};
+  const dot=d=>iso(d).replace(/-/g,'.');
   const isTrade=d=>{const w=d.getUTCDay();return w!==0&&w!==6&&!HOL.has(iso(d))};
   const step=(d,dir)=>{let x=new Date(d);do{x.setUTCDate(x.getUTCDate()+dir)}while(!isTrade(x));return x};
   const tradingDaysAfter=(a,b)=>{let n=0,x=new Date(a);while(x<b){x.setUTCDate(x.getUTCDate()+1);if(x<=b&&isTrade(x))n++}return n};
   const isMon=d=>d&&d.getUTCDay()===1;
 
-  const EXAMPLE={date:'2026-08-13',seed:10000,cash:6230,hold:30,pc:142.16,ma:132.69,bp:0,bn:0,sp:142.90,sn:11,
-    yb1:129.72,yq1:5,yb2:132.48,yq2:5,ys1:153.26,yn1:5,ys2:135.42,yn2:6,ys3:133.02,yn3:5};
+  const EXAMPLE={date:'2026.08.13',cyc:29,avg:131.782,seed:14467.67,cash:9009.00,hold:43,pc:142.16,ma:132.69,bp:0,bn:0,sp:142.90,sn:16,
+    yb1:129.72,yq1:8,yb2:132.48,yq2:8,ys1:153.26,yn1:7,ys2:135.42,yn2:8,ys3:133.02,yn3:8};
 
   let last=null;
 
@@ -238,7 +285,7 @@ details[open] summary{margin-bottom:10px}
       chips.push(['start','사이클 시작일']);
       if(Math.abs(seed-cash)>0.005) notes.push({t:'보유수가 0이면 새 사이클입니다. 사이클시드를 잔금('+f2(cash)+')으로 바꿔야 정확합니다.',fix:'seed'});
     }else{
-      chips.push(['','진행 중 · '+hold+'주 보유']);
+      chips.push(['','진행 중 · '+fi(hold)+'주 보유']);
       // yesterday sells: lowest price fills first
       const ys=[[num('ys1'),num('yn1')],[num('ys2'),num('yn2')],[num('ys3'),num('yn3')]];
       const fill=i=>{const [p,n]=ys[i];if(!(p>0))return 0;let lower=0;ys.forEach(([q,m],j)=>{if(j!==i&&q>0&&q<p)lower+=m});return Math.max(0,Math.min(n,sn-lower))};
@@ -253,7 +300,7 @@ details[open] summary{margin-bottom:10px}
       cand.sort((a,b)=>b.seq-a.seq);
       if(cand[0])o.s2=[cand[0].p,cand[0].q,cand[0].src];
       if(cand[1])o.s1=[cand[1].p,cand[1].q,cand[1].src];
-      if(cand.length>2){const c=cand[2];notes.push({t:'로트가 3개입니다. '+f2(c.p)+' × '+c.q+'주를 대기 로트 칸에 적어 두세요 (마지막 주문일: '+(D?iso(D):'오늘')+').'})}
+      if(cand.length>2){const c=cand[2];notes.push({t:'로트가 3개입니다. '+f2(c.p)+' × '+c.q+'주를 대기 로트 칸에 적어 두세요 (마지막 주문일: '+(D?dot(D):'오늘')+').'})}
       o.s3p=r2(Math.max(pc+0.02,pc*(1+0.004+(up?0.035:0)+0.64*(V/pc-1))));
       const lq=o.s1[1]+o.s2[1];
       o.s3=[o.s3p, lq>0?Math.max(0,Math.min(hold-lq,Math.floor(1.2*U/V))):hold];
@@ -269,7 +316,7 @@ details[open] summary{margin-bottom:10px}
   function row(side,label,price,qty,why){
     const off=!(price>0&&qty>0);
     return `<div class="ord ${side}${off?' off':''}"><span class="tag ${side}">${label}</span><span class="why">${why}</span>
-      <span class="num"><span class="p">${off?'주문 없음':f2(price)}</span>${off?'':`<br><span class="q">× ${qty}주</span>`}</span></div>`;
+      <span class="num"><span class="p">${off?'주문 없음':f2(price)}</span>${off?'':`<br><span class="q">× ${fi(qty)}주</span>`}</span></div>`;
   }
   function render(o,chips,notes){
     $('chips').innerHTML=chips.map(([c,t])=>`<span class="chip ${c}">${t}</span>`).join('');
@@ -284,38 +331,136 @@ details[open] summary{margin-bottom:10px}
       row('s','매도3',o.s3[0],o.s3[1],last.start?'사이클 시작일은 없음':'나머지 풀 · 개수 1.2배');
   }
 
-  function setTab(t){document.body.dataset.tab=t;$('tabIn').setAttribute('aria-selected',t==='in');$('tabOut').setAttribute('aria-selected',t==='out');window.scrollTo(0,0)}
+  function setTab(t){document.body.dataset.tab=t;$('tabIn').setAttribute('aria-selected',t==='in');$('tabOut').setAttribute('aria-selected',t==='out');$('tabLog').setAttribute('aria-selected',t==='log');window.scrollTo(0,0)}
   function mbar(){if(!last){$('mbarTxt').textContent='입력값을 채워 주세요';return}const o=last.o;const n=[o.s1,o.s2,o.s3].filter(x=>x[0]>0&&x[1]>0).length;
-    $('mbarTxt').innerHTML='매수 '+f2(o.b1)+'×'+o.q1+' · '+f2(o.b2)+'×'+o.q2+'<br>매도 '+n+'건'}
+    $('mbarTxt').innerHTML='매수 '+f2(o.b1)+'×'+fi(o.q1)+' · '+f2(o.b2)+'×'+fi(o.q2)+'<br>매도 '+n+'건'}
   function save(){try{const s={};IDS.forEach(i=>s[i]=$(i).value);localStorage.setItem('soxl-ma20',JSON.stringify(s))}catch(e){}}
-  function load(){try{const s=JSON.parse(localStorage.getItem('soxl-ma20')||'null');if(s){IDS.forEach(i=>{if(s[i]!=null)$(i).value=s[i]});return true}}catch(e){}return false}
-  function fill(obj){IDS.forEach(i=>$(i).value=obj[i]!=null?obj[i]:'');document.querySelectorAll('input.needs').forEach(x=>x.classList.remove('needs'))}
-  function toast(t){$('toast').textContent=t;clearTimeout(toast._t);toast._t=setTimeout(()=>$('toast').textContent='',2600)}
+  function norm(el){if(el.dataset&&el.dataset.num!==undefined)el.value=fmtIn(el.value);else if(el.classList&&el.classList.contains('dtin')){const d=parse(el.value);if(d)el.value=dot(d)}}
+  function normAll(){IDS.forEach(i=>norm($(i)))}
+  function load(){try{const s=JSON.parse(localStorage.getItem('soxl-ma20')||'null');if(s){IDS.forEach(i=>{if(s[i]!=null)$(i).value=s[i]});normAll();return true}}catch(e){}return false}
+  function fill(obj){IDS.forEach(i=>$(i).value=obj[i]!=null?obj[i]:'');normAll();document.querySelectorAll('input.needs').forEach(x=>x.classList.remove('needs'))}
+  function toast(t){['toast','toast2'].forEach(k=>$(k).textContent=t);clearTimeout(toast._t);toast._t=setTimeout(()=>['toast','toast2'].forEach(k=>$(k).textContent=''),3200)}
 
   $('form').addEventListener('input',e=>{if(e.target.classList)e.target.classList.remove('needs');save();calc()});
   $('form').addEventListener('submit',e=>e.preventDefault());
-  $('btnExample').onclick=()=>{fill(EXAMPLE);save();calc();toast('예시 값으로 채웠습니다. 실제 값으로 바꿔서 쓰세요.')};
+  $('form').addEventListener('focusout',e=>{norm(e.target);save()});
+  $('btnPick').onclick=()=>{const p=$('datePick'),d=parse($('date').value);p.value=d?iso(d):'';try{p.showPicker()}catch(e){p.focus();p.click()}};
+  $('datePick').addEventListener('change',e=>{const d=parse(e.target.value);if(d){$('date').value=dot(d);$('date').classList.remove('needs');save();calc()}});
+  $('btnExample').onclick=()=>{fill(EXAMPLE);save();calc();toast('2026.08.13 실제 기록으로 채웠습니다.')};
   $('btnClear').onclick=()=>{fill({});save();calc();toast('입력값을 비웠습니다.')};
   $('btnCopy').onclick=()=>{
-    if(!last)return;const o=last.o,d=last.D?iso(last.D):'';
-    const L=[`SOXL 예약주문 ${d}`,`매수1 ${f2(o.b1)} × ${o.q1}`,`매수2 ${f2(o.b2)} × ${o.q2}`];
-    [['매도1',o.s1],['매도2',o.s2],['매도3',o.s3]].forEach(([n,s])=>L.push(s[0]>0&&s[1]>0?`${n} ${f2(s[0])} × ${s[1]}`:`${n} 없음`));
+    if(!last)return;const o=last.o,d=last.D?dot(last.D):'';
+    const L=[`SOXL 예약주문 ${d}`,`매수1 ${f2(o.b1)} × ${fi(o.q1)}`,`매수2 ${f2(o.b2)} × ${fi(o.q2)}`];
+    [['매도1',o.s1],['매도2',o.s2],['매도3',o.s3]].forEach(([n,s])=>L.push(s[0]>0&&s[1]>0?`${n} ${f2(s[0])} × ${fi(s[1])}`:`${n} 없음`));
     const txt=L.join('\n');
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('주문 내용을 복사했습니다.'),()=>toast(txt.replace(/\n/g,' · ')))}else toast(txt.replace(/\n/g,' · '));
   };
   $('btnNext').onclick=()=>{
-    if(!last)return;const o=last.o;
-    const set=(id,v)=>{$(id).value=v>0?v:0};
+    if(!last)return;if(!saveRow(true))return;const o=last.o;
+    const set=(id,v)=>{$(id).value=fmtIn(v>0?v:0)};
     set('yb1',o.b1);set('yq1',o.q1);set('yb2',o.b2);set('yq2',o.q2);
     set('ys1',o.s1[0]);set('yn1',o.s1[1]);set('ys2',o.s2[0]);set('yn2',o.s2[1]);set('ys3',o.s3[0]);set('yn3',o.s3[1]);
-    if(last.D)$('date').value=iso(step(last.D,1));
+    if(last.D)$('date').value=dot(step(last.D,1));
+    $('avg').value='';
     ['bp','bn','sp','sn'].forEach(i=>$(i).value='');
     ['cash','hold','pc','ma','bp','bn','sp','sn'].forEach(i=>$(i).classList.add('needs'));
-    save();calc();toast('다음 거래일로 넘겼습니다. 노란 칸을 장 마감 결과로 채우세요.');
+    save();calc();toast('기록을 저장하고 다음 거래일로 넘겼습니다. 노란 칸을 장 마감 결과로 채우세요.');
     setTab('in');$('cash').focus();
   };
 
-  $('tabIn').onclick=()=>setTab('in');$('tabOut').onclick=()=>setTab('out');$('mbarBtn').onclick=()=>setTab('out');
+
+  /* ===== 매매 기록 ===== */
+  const COLS=['날짜','사이클차수','사이클시드','잔금','매수예약가1','매수예약1개수','매수예약가2','매수예약2개수','매도예약가1','매도예약1개수','매도예약가2','매도예약가2개수','매도예약가3','매도예약가3개수','전일종가','전일평단','전일매수체결가','전일매수개수','전일매도체결가','전일매도개수','누적보유수','당일실현','MA20'];
+  const QTY=new Set([5,7,9,11,13,17,19,20]);
+  const LKEY='soxl-ma20-log';
+  let LOG=[];
+  function lload(){try{LOG=JSON.parse(localStorage.getItem(LKEY)||'[]')||[]}catch(e){LOG=[]}}
+  function lsave(){try{localStorage.setItem(LKEY,JSON.stringify(LOG));return true}catch(e){toast('저장 공간에 쓰지 못했습니다. 엑셀로 내보내 백업하세요.');return false}}
+  function lsort(){LOG.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0)}
+  function prevRow(dISO){let r=null;for(const x of LOG){if(x[0]<dISO)r=x}return r}
+  const rr=(x,n)=>Math.round(x*Math.pow(10,n))/Math.pow(10,n);
+
+  function saveRow(quiet){
+    if(!last){toast('계산 결과가 없어 저장하지 못했습니다.');return false}
+    const D=last.D;if(!D){toast('주문일을 넣어야 저장할 수 있습니다.');$('date').focus();return false}
+    const dI=iso(D),o=last.o,hold=Math.round(num('hold'));
+    const bp=num('bp'),bn=num('bn'),sp=num('sp'),sn=num('sn');
+    const pr=prevRow(dI);
+    let cyc=Math.round(num('cyc'));
+    if(last.start&&pr&&pr[20]>0&&pr[1]===cyc){cyc=cyc+1;$('cyc').value=fmtIn(cyc)}
+    if(!cyc&&pr)cyc=last.start&&pr[20]>0?pr[1]+1:pr[1];
+    if(cyc&&!num('cyc'))$('cyc').value=fmtIn(cyc);
+    let pavg=num('avg'),auto=false,noavg=false;
+    if(!(pavg>0)&&pr){const ph=pr[20]||0,pa=pr[15]||0;pavg=(ph+bn)>0?(pa*ph+bp*bn)/(ph+bn):0;auto=true}
+    else if(!(pavg>0)&&sn>0)noavg=true;
+    const real=sn>0&&pavg>0?rr(sn*(sp-pavg),2):0;
+    const avgOut=hold>0?rr(pavg,3):0;
+    const row=[dI,cyc||0,num('seed'),num('cash'),o.b1,o.q1,o.b2,o.q2,o.s1[0]||0,o.s1[1]||0,o.s2[0]||0,o.s2[1]||0,o.s3[0]||0,o.s3[1]||0,num('pc'),avgOut,bp,bn,sp,sn,hold,real,num('ma')];
+    const i=LOG.findIndex(x=>x[0]===dI);
+    if(i>=0)LOG[i]=row;else LOG.push(row);
+    lsort();if(!lsave())return false;renderLog();save();
+    if(!quiet)toast(dot(D)+' 기록을 '+(i>=0?'덮어썼습니다':'저장했습니다')+' (총 '+LOG.length+'일)'+(noavg?' · 첫 기록이라 당일실현은 0으로 넣었습니다. 전일평단을 넣으면 계산됩니다.':''));
+    return true;
+  }
+
+  function cell(v,j){
+    if(j===0)return `<td>${v.replace(/-/g,'.')}</td>`;
+    if(j===1)return `<td>${v?v+'차':''}</td>`;
+    if(!v)return `<td class="z">0</td>`;
+    if(j===21)return `<td class="${v<0?'neg':'pos'}">${f2(v)}</td>`;
+    if(QTY.has(j))return `<td>${fi(v)}</td>`;
+    if(j===15)return `<td>${v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:3})}</td>`;
+    return `<td>${f2(v)}</td>`;
+  }
+  function renderLog(){
+    $('logCount').textContent=LOG.length+'일';
+    if(!LOG.length){$('logBody').innerHTML='<p class="empty">아직 저장된 기록이 없습니다. 주문 결과에서 "기록 저장"을 누르거나, 기존 기록 엑셀을 불러오세요.</p>';return}
+    const tot=LOG.reduce((a,x)=>a+(x[21]||0),0);
+    const rows=LOG.slice().reverse().map(x=>`<tr>${x.map(cell).join('')}<td><button type="button" class="del" data-d="${x[0]}" aria-label="${x[0]} 삭제">삭제</button></td></tr>`).join('');
+    $('logBody').innerHTML=`<p class="empty">누적 실현손익 <b style="color:var(--${tot<0?'buy':'ok'})">${f2(tot)}</b> · 최근 날짜가 위에 있습니다</p><div class="tblwrap"><table class="log"><thead><tr>${COLS.map(c=>`<th>${c}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  $('logBody').addEventListener('click',e=>{const b=e.target.closest('button.del');if(!b)return;const d=b.dataset.d;
+    if(b.dataset.arm!=='1'){b.dataset.arm='1';b.textContent='한번 더';setTimeout(()=>{if(b.isConnected){b.dataset.arm='';b.textContent='삭제'}},2500);return}
+    LOG=LOG.filter(x=>x[0]!==d);lsave();renderLog();toast(d.replace(/-/g,'.')+' 기록을 지웠습니다.')});
+  $('btnSave').onclick=()=>saveRow(false);
+
+  function needX(){return new Promise((res,rej)=>{if(window.XLSX)return res(window.XLSX);const sc=document.createElement('script');sc.src=XLSX_SRC;sc.onload=()=>res(window.XLSX);sc.onerror=()=>rej();document.head.appendChild(sc)})}
+  $('btnExport').onclick=async()=>{
+    if(!LOG.length){toast('내보낼 기록이 없습니다.');return}
+    let X;try{X=await needX()}catch(e){toast('엑셀 모듈을 불러오지 못했습니다. 인터넷 연결 후 다시 눌러 주세요.');return}
+    const aoa=[COLS].concat(LOG.map(x=>{const r=x.slice();const g=r[0].split('-');r[0]=Date.UTC(+g[0],+g[1]-1,+g[2])/864e5+25569;r[1]=r[1]?r[1]+'차':'';return r}));
+    const ws=X.utils.aoa_to_sheet(aoa);
+    for(let i=1;i<aoa.length;i++)for(let j=0;j<COLS.length;j++){const a=X.utils.encode_cell({r:i,c:j});const c=ws[a];if(!c)continue;
+      if(j===0){c.z='yyyy.mm.dd'}else if(j>1){c.z=QTY.has(j)?'#,##0':(j===15?'#,##0.000':'#,##0.00')}}
+    ws['!cols']=COLS.map((c,j)=>({wch:j===0?11:Math.max(9,c.length*2)}));
+    ws['!freeze']={xSplit:1,ySplit:1};
+    const wb=X.utils.book_new();X.utils.book_append_sheet(wb,ws,'기록');
+    const t=new Date(),fn='SOXL_record_'+iso(new Date(t.getTime()-t.getTimezoneOffset()*60000)).replace(/-/g,'')+'.xlsx';
+    const blob=new Blob([X.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);
+    toast('엑셀 파일을 내려받았습니다 ('+LOG.length+'일).');
+  };
+  $('btnImport').onclick=()=>$('fileImport').click();
+  $('fileImport').onchange=async e=>{
+    const f=e.target.files[0];e.target.value='';if(!f)return;
+    let X;try{X=await needX()}catch(er){toast('엑셀 모듈을 불러오지 못했습니다. 인터넷 연결 후 다시 눌러 주세요.');return}
+    try{
+      const wb=X.read(await f.arrayBuffer(),{cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];
+      const A=X.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+      let n=0;
+      for(let i=1;i<A.length;i++){const r=A[i];if(!r||r[0]==null)continue;
+        let d=r[0];if(typeof d==='number'){d=new Date(Math.round((d-25569)*864e5))}else if(!(d instanceof Date)){d=parse(d)}
+        if(!d||isNaN(d))continue;
+        const dI=new Date(d.getTime()+12*3600e3).toISOString().slice(0,10);
+        const row=[dI,Math.round(pn(String(r[1]||'').replace(/\D/g,'')))||0];
+        for(let j=2;j<COLS.length;j++){const v=pn(r[j]);row.push(isFinite(v)?v:0)}
+        const k=LOG.findIndex(x=>x[0]===dI);if(k>=0)LOG[k]=row;else LOG.push(row);n++}
+      lsort();lsave();renderLog();toast(n+'일치 기록을 불러왔습니다 (총 '+LOG.length+'일).');
+    }catch(er){toast('파일을 읽지 못했습니다. 원래 기록 엑셀(첫 시트, A열 날짜)인지 확인하세요.')}
+  };
+  lload();renderLog();
+
+  $('tabIn').onclick=()=>setTab('in');$('tabOut').onclick=()=>setTab('out');$('tabLog').onclick=()=>setTab('log');$('mbarBtn').onclick=()=>setTab('out');
   document.body.dataset.tab='in';
   if(!load())fill(EXAMPLE);
   if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
