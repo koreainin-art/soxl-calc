@@ -131,6 +131,16 @@ table.log td.z{color:var(--muted)}
 table.log td.neg{color:var(--buy)} table.log td.pos{color:var(--ok)}
 table.log button.del{padding:2px 7px;font-size:.75rem}
 .empty{color:var(--muted);font-size:.88rem;margin:0}
+label{position:relative}
+label .auto{position:absolute;right:2px;top:0;font-size:.7rem;font-weight:600;color:var(--ok);background:var(--ok-soft);padding:0 6px;border-radius:999px;line-height:1.5}
+label .auto:empty{display:none}
+#fillDetail{font-family:ui-monospace,"Roboto Mono",monospace;font-size:.78rem}
+#fillDetail:empty{display:none}
+.sync{border:1px solid var(--line);border-radius:10px;padding:12px}
+.sync summary{font-weight:600;color:var(--ink)}
+.sync .fields{margin-bottom:10px}
+.sstat{font-size:.82rem;padding:6px 10px;border-radius:8px;background:var(--bg);color:var(--muted)}
+.sstat.ok{background:var(--ok-soft);color:var(--ok)} .sstat.bad{background:var(--warn-soft);color:var(--warn)}
 </style>
 </head>
 <body>
@@ -140,7 +150,7 @@ table.log button.del{padding:2px 7px;font-size:.75rem}
   <header>
     <div>
       <h1>SOXL 예약주문 계산기</h1>
-      <p class="sub">MA20 추천안 · 입력 칸을 채우면 오늘 걸 VWAP 예약주문 5건이 바로 나옵니다 · 저장하면 매일 기록이 쌓입니다</p>
+      <p class="sub">MA20 추천안 · LOC(지정가 종가) 주문 · 매일 전일종가만 넣으면 체결·잔금·보유가 자동으로 계산됩니다</p>
     </div>
     <div class="tools">
       <button id="btnExample" type="button">예시 불러오기 (8/13)</button>
@@ -155,25 +165,26 @@ table.log button.del{padding:2px 7px;font-size:.75rem}
         <h2><span class="n">1</span>오늘 상태</h2>
         <div class="fields">
           <label class="full">주문일 (미국 날짜)<span class="dt"><input id="date" class="dtin" type="text" inputmode="numeric" placeholder="2026.09.28" maxlength="10"><button type="button" id="btnPick" aria-label="달력에서 고르기">📅</button></span><input id="datePick" class="pick" type="date" tabindex="-1" aria-hidden="true"></label>
+          <label>전일종가<input id="pc" type="text" inputmode="decimal" data-num></label>
+          <label>MA20 (20일선) <span class="auto" id="maAuto"></span><input id="ma" type="text" inputmode="decimal" data-num></label>
+          <label>잔금 <span class="auto" id="cashAuto"></span><input id="cash" type="text" inputmode="decimal" data-num></label>
+          <label>누적보유수 <span class="auto" id="holdAuto"></span><input id="hold" type="text" inputmode="numeric" data-num></label>
           <label>사이클차수<input id="cyc" type="text" inputmode="numeric" data-num></label>
           <label>사이클시드<input id="seed" type="text" inputmode="decimal" data-num></label>
-          <label>잔금<input id="cash" type="text" inputmode="decimal" data-num></label>
-          <label>누적보유수<input id="hold" type="text" inputmode="numeric" data-num></label>
-          <label>전일종가<input id="pc" type="text" inputmode="decimal" data-num></label>
-          <label>20일 이동평균 (MA20)<input id="ma" type="text" inputmode="decimal" data-num></label>
+          <label class="full">주문 배수 (실제 주문 개수 = 계산 개수 × 배수, 소수점 버림)<input id="mult" type="text" inputmode="decimal" data-num placeholder="1"></label>
+          <input type="hidden" id="pcash"><input type="hidden" id="phold"><input type="hidden" id="pseed"><input type="hidden" id="pcyc"><input type="hidden" id="man">
         </div>
       </section>
 
       <div class="divider"></div>
       <section class="sec">
-        <h2><span class="n">2</span>전일 체결 결과</h2>
-        <p class="hint">체결이 없었으면 0 또는 빈칸. 매도는 여러 주문이 체결돼도 합계 개수와 평균 체결가를 넣으세요.</p>
+        <h2><span class="n">2</span>전일 체결 (LOC 자동 판정)</h2>
+        <p class="hint">어제 주문을 전일종가와 비교해 자동으로 판정합니다 (매수: 예약가 ≥ 종가, 매도: 예약가 ≤ 종가, 체결가 = 종가). 증권사 체결 내역과 다를 때(일부 체결 등)만 개수를 고치세요.</p>
         <div class="fields">
-          <label>전일매수체결가<input id="bp" type="text" inputmode="decimal" data-num></label>
-          <label>전일매수개수<input id="bn" type="text" inputmode="numeric" data-num></label>
-          <label>전일매도체결가<input id="sp" type="text" inputmode="decimal" data-num></label>
-          <label>전일매도개수<input id="sn" type="text" inputmode="numeric" data-num></label>
+          <label>전일매수개수 <span class="auto" id="bnAuto"></span><input id="bn" type="text" inputmode="numeric" data-num></label>
+          <label>전일매도개수 <span class="auto" id="snAuto"></span><input id="sn" type="text" inputmode="numeric" data-num></label>
         </div>
+        <p class="hint" id="fillDetail"></p>
       </section>
 
       <div class="divider"></div>
@@ -220,8 +231,8 @@ table.log button.del{padding:2px 7px;font-size:.75rem}
         <button id="btnNext" class="primary" type="button">저장하고 내일 준비 →</button>
       </div>
       <div class="toast" id="toast"></div>
-      <p class="foot">"기록 저장"을 누르면 오늘 주문과 체결이 기록 탭에 한 줄로 쌓입니다 (같은 날짜는 덮어씀). "저장하고 내일 준비"를 누르면 저장한 뒤 오늘 결과가 ③ 전일 예약주문으로 옮겨지고 날짜가 다음 거래일로 넘어갑니다. 장 마감 후 <b>잔금 · 누적보유수 · 전일종가 · MA20 · 전일 체결</b>만 새로 채우면 됩니다 (노란 테두리).</p>
-      <p class="foot">규칙: 전일종가가 MA20보다 위면 매도3 +3.5%, 매도3 개수는 항상 1.2배. 나머지는 강사 방식 재현 공식. 2010~2026 백테스트 연평균 42.2%, 최대낙폭 −38%. 과거 성과가 미래를 보장하지 않습니다.</p>
+      <p class="foot">매일 할 일: 장 마감 후 <b>전일종가</b>만 넣으면 어제 주문의 체결, 잔금, 보유수가 자동 계산됩니다. MA20은 기록이 20일 이상 쌓이면 자동으로 채워지고, 그 전에는 차트의 20일선 값을 넣으세요. 결과를 LOC 주문으로 걸고 "저장하고 내일 준비"를 누르면 끝입니다. 초록색 "자동" 표시가 있는 칸도 직접 고칠 수 있습니다.</p>
+      <p class="foot">규칙: 전일종가가 MA20보다 위면 매도3 +3.5%, 매도3 개수는 항상 1.2배. 체결가는 모두 종가(LOC). 5분봉 검증(2016~2026, LOC 체결): 연평균 약 48%, 최대낙폭 약 −37% (VWAP 체결이었다면 약 40%). 과거 성과가 미래를 보장하지 않습니다.</p>
     </aside>
   </div>
 
@@ -234,8 +245,22 @@ table.log button.del{padding:2px 7px;font-size:.75rem}
       </div>
     </div>
     <input type="file" id="fileImport" accept=".xlsx,.xls,.csv" hidden>
+    <div class="sstat" id="sStat">구글 시트 백업: 꺼짐</div>
+    <details class="sync" id="syncBox">
+      <summary>구글 시트 자동 백업 설정</summary>
+      <p class="hint" style="margin:0 0 10px;color:var(--muted);font-size:.82rem">설정하면 "기록 저장"·삭제·불러오기 때마다 구글 시트에 자동으로 올라갑니다. 휴대폰을 바꾸거나 앱이 지워져도 아래 두 칸만 다시 넣으면 기록이 돌아옵니다.</p>
+      <div class="fields">
+        <label class="full">웹 앱 URL (https://script.google.com/…/exec)<input id="gUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false"></label>
+        <label class="full">비밀번호 (스크립트의 TOKEN과 같게)<input id="gTok" type="password" autocomplete="off"></label>
+      </div>
+      <div class="tools">
+        <button type="button" class="primary" id="gSave">저장하고 연결</button>
+        <button type="button" id="gPull">시트에서 불러오기</button>
+        <button type="button" id="gPush">전체 다시 올리기</button>
+      </div>
+    </details>
     <div id="logBody"></div>
-    <p class="foot">열 구성은 원래 기록 엑셀과 같습니다 (A 날짜 ~ V 당일실현, W MA20). "엑셀 불러오기"로 기존 기록 파일을 넣으면 같은 날짜는 덮어쓰고 나머지는 합칩니다. 기록은 이 휴대폰 브라우저에만 저장되니 가끔 내보내기로 백업해 두세요.</p>
+    <p class="foot">열 구성은 원래 기록 엑셀과 같습니다 (A 날짜 ~ V 당일실현, W MA20). "엑셀 불러오기"로 기존 기록 파일을 넣으면 같은 날짜는 덮어쓰고 나머지는 합칩니다. 구글 시트 백업을 켜 두면 휴대폰이 바뀌어도 기록이 남습니다.</p>
     <div class="toast" id="toast2"></div>
   </section>
 </div>
@@ -244,9 +269,9 @@ table.log button.del{padding:2px 7px;font-size:.75rem}
 <script>
 const XLSX_SRC='./xlsx.full.min.js';
 (function(){
-  const HOL=new Set(['2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25',
+  const HOL=new Set(['2025-01-01','2025-01-09','2025-01-20','2025-02-17','2025-04-18','2025-05-26','2025-06-19','2025-07-04','2025-09-01','2025-11-27','2025-12-25','2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25',
     '2027-01-01','2027-01-18','2027-02-15','2027-03-26','2027-05-31','2027-06-18','2027-07-05','2027-09-06','2027-11-25','2027-12-24']);
-  const IDS=['date','cyc','avg','seed','cash','hold','pc','ma','bp','bn','sp','sn','yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3','w1p','w1q','w1d','w2p','w2q','w2d'];
+  const IDS=['date','mult','cyc','avg','seed','cash','hold','pc','ma','bn','sn','pcash','phold','pseed','pcyc','man','yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3','w1p','w1q','w1d','w2p','w2q','w2d'];
   const $=id=>document.getElementById(id);
   const pn=v=>{const x=parseFloat(String(v==null?'':v).replace(/,/g,''));return isFinite(x)?x:NaN};
   const num=id=>{const v=pn($(id).value);return isFinite(v)?v:0};
@@ -262,14 +287,46 @@ const XLSX_SRC='./xlsx.full.min.js';
   const tradingDaysAfter=(a,b)=>{let n=0,x=new Date(a);while(x<b){x.setUTCDate(x.getUTCDate()+1);if(x<=b&&isTrade(x))n++}return n};
   const isMon=d=>d&&d.getUTCDay()===1;
 
-  const EXAMPLE={date:'2026.08.13',cyc:29,avg:131.782,seed:14467.67,cash:9009.00,hold:43,pc:142.16,ma:132.69,bp:0,bn:0,sp:142.90,sn:16,
+  const EXAMPLE={date:'2026.08.13',cyc:29,avg:131.782,seed:14467.67,cash:9009.00,hold:43,pc:142.16,ma:132.69,bn:0,sn:16,
     yb1:129.72,yq1:8,yb2:132.48,yq2:8,ys1:153.26,yn1:7,ys2:135.42,yn2:8,ys3:133.02,yn3:8};
 
   let last=null;
 
+  function isMan(id){return ($('man').value||'').split(',').includes(id)}
+  function setAuto(id,v,tag){const el=$(id+'Auto');if(isMan(id)){if(el)el.textContent='';return}$(id).value=fmtIn(v);if(el)el.textContent=tag||'자동'}
+  function autoMA(D,pc){
+    if(!D||!(pc>0)||typeof LOG==='undefined')return null;
+    const mp={};LOG.forEach(x=>{if(x[14]>0)mp[x[0]]=x[14]});
+    const v=[pc];let d=D;
+    for(let i=0;i<19;i++){d=step(d,-1);const k=iso(d);if(!(mp[k]>0))return null;v.push(mp[k])}
+    return v.reduce((a,b)=>a+b,0)/20;
+  }
+  function autoFill(){
+    const D=parse($('date').value), pc=num('pc');
+    ['maAuto','cashAuto','holdAuto','bnAuto','snAuto'].forEach(k=>$(k).textContent='');$('fillDetail').textContent='';
+    if(!(pc>0))return;
+    const m=autoMA(D,pc); if(m) setAuto('ma',Math.round(m*10000)/10000,'자동');
+    const Y=[['매수1',num('yb1'),num('yq1'),'b'],['매수2',num('yb2'),num('yq2'),'b'],['매도1',num('ys1'),num('yn1'),'s'],['매도2',num('ys2'),num('yn2'),'s'],['매도3',num('ys3'),num('yn3'),'s']];
+    if(!Y.some(y=>y[1]>0&&y[2]>0))return;
+    let bn=0,sn=0;const det=[];
+    Y.forEach(([n,p,q,sd])=>{if(!(p>0&&q>0))return;const ok=sd==='b'?p>=pc:p<=pc;if(ok){sd==='b'?bn+=q:sn+=q}det.push(n+(ok?' ✓'+q:' ✗'))});
+    $('fillDetail').textContent='종가 '+f2(pc)+' 기준: '+det.join(' · ');
+    setAuto('bn',bn);setAuto('sn',sn);
+    const ph=$('phold').value, pca=$('pcash').value;
+    if(ph!==''&&pca!==''){
+      const b=num('bn'),s=num('sn');
+      const cash=Math.round((parseFloat(pca)-b*pc+s*pc)*100)/100, hold=parseInt(ph,10)+b-s;
+      setAuto('cash',cash);setAuto('hold',hold);
+      const newCyc=hold===0&&parseInt(ph,10)>0;
+      if(!isMan('seed')&&$('pseed').value!=='')$('seed').value=fmtIn(newCyc?cash:parseFloat($('pseed').value));
+      if(!isMan('cyc')&&$('pcyc').value!=='')$('cyc').value=fmtIn(parseInt($('pcyc').value,10)+(newCyc?1:0));
+      if(newCyc)$('fillDetail').textContent+='  → 전량 매도, 새 사이클 시작 (시드 = 잔금)';
+    }
+  }
   function calc(){
     const D=parse($('date').value), seed=num('seed'), cash=num('cash'), hold=Math.round(num('hold')), pc=num('pc'), ma=num('ma');
-    const bp=num('bp'), bn=num('bn'), sp=num('sp'), sn=num('sn');
+    autoFill();
+    const bn=num('bn'), sn=num('sn'), bp=pc, sp=pc;
     const chips=[], notes=[];
     if(!(seed>0&&pc>0)){render(null,chips,['사이클시드와 전일종가를 넣으면 계산이 시작됩니다.']);return}
     const V=(bn+sn)>0?(bp*bn+sp*sn)/(bn+sn):pc;
@@ -303,18 +360,25 @@ const XLSX_SRC='./xlsx.full.min.js';
       if(cand.length>2){const c=cand[2];notes.push({t:'로트가 3개입니다. '+f2(c.p)+' × '+c.q+'주를 대기 로트 칸에 적어 두세요 (마지막 주문일: '+(D?dot(D):'오늘')+').'})}
       o.s3p=r2(Math.max(pc+0.02,pc*(1+0.004+(up?0.035:0)+0.64*(V/pc-1))));
       const lq=o.s1[1]+o.s2[1];
-      o.s3=[o.s3p, lq>0?Math.max(0,Math.min(hold-lq,Math.floor(1.2*U/V))):hold];
+      o.s3=[o.s3p, lq>0?Math.max(0,Math.min(hold-lq,Math.floor(1.2*U/V))):hold];o.s3all=lq===0;
       chips.push(up?['up','상승추세 · 매도3 +3.5%']:['','MA20 아래 · 기본 매도3']);
     }
+    if(MUL()!==1)chips.push(['warn','주문 ×'+MUL()+'배']);
     if(!D)notes.push({t:'주문일을 넣으면 월요일 보정과 대기 로트 계산이 정확해집니다.'});
+    if(!start&&!(ma>0))notes.push({t:'MA20 값이 없어 상승추세 가산 없이 계산했습니다. 차트의 20일선 값을 넣으세요 (기록이 20일 쌓이면 자동).'});
     if(cash>seed+0.005)notes.push({t:'잔금이 사이클시드보다 큽니다. 입력값을 확인하세요.'});
     last={o,start,D};
     $('kV').textContent=f2(V); $('kU').textContent=(u*100).toFixed(1)+'%'; $('kUnit').textContent=f2(U);
     render(o,chips,notes);mbar();
   }
 
-  function row(side,label,price,qty,why){
+  const MUL=()=>{const m=num('mult');return m>0?m:1};
+  const sq=q=>Math.floor(q*MUL()+1e-9);
+  function row(side,label,price,q0,why,all){
+    const qty=sq(q0),m=MUL();
     const off=!(price>0&&qty>0);
+    if(m!==1&&!off)why+=` <br><span style="opacity:.8">기준 ${fi(q0)}주 × ${m}${all?' · 실제 계좌 보유 전량 매도':''}</span>`;
+    else if(all&&!off)why+=' · 보유 전량';
     return `<div class="ord ${side}${off?' off':''}"><span class="tag ${side}">${label}</span><span class="why">${why}</span>
       <span class="num"><span class="p">${off?'주문 없음':f2(price)}</span>${off?'':`<br><span class="q">× ${fi(qty)}주</span>`}</span></div>`;
   }
@@ -328,20 +392,24 @@ const XLSX_SRC='./xlsx.full.min.js';
       row('b','매수2',o.b2,o.q2,'전일종가 −0.1% 또는 V −0.02 중 낮은 값')+
       row('s','매도1',o.s1[0],o.s1[1],o.s1[2]||'두 번째 로트')+
       row('s','매도2',o.s2[0],o.s2[1],o.s2[2]||'최신 로트')+
-      row('s','매도3',o.s3[0],o.s3[1],last.start?'사이클 시작일은 없음':'나머지 풀 · 개수 1.2배');
+      row('s','매도3',o.s3[0],o.s3[1],last.start?'사이클 시작일은 없음':'나머지 풀 · 개수 1.2배',o.s3all);
   }
 
   function setTab(t){document.body.dataset.tab=t;$('tabIn').setAttribute('aria-selected',t==='in');$('tabOut').setAttribute('aria-selected',t==='out');$('tabLog').setAttribute('aria-selected',t==='log');window.scrollTo(0,0)}
   function mbar(){if(!last){$('mbarTxt').textContent='입력값을 채워 주세요';return}const o=last.o;const n=[o.s1,o.s2,o.s3].filter(x=>x[0]>0&&x[1]>0).length;
-    $('mbarTxt').innerHTML='매수 '+f2(o.b1)+'×'+fi(o.q1)+' · '+f2(o.b2)+'×'+fi(o.q2)+'<br>매도 '+n+'건'}
+    $('mbarTxt').innerHTML='매수 '+f2(o.b1)+'×'+fi(sq(o.q1))+' · '+f2(o.b2)+'×'+fi(sq(o.q2))+'<br>매도 '+n+'건'+(MUL()!==1?' · 배수 '+MUL():'')}
   function save(){try{const s={};IDS.forEach(i=>s[i]=$(i).value);localStorage.setItem('soxl-ma20',JSON.stringify(s))}catch(e){}}
   function norm(el){if(el.dataset&&el.dataset.num!==undefined)el.value=fmtIn(el.value);else if(el.classList&&el.classList.contains('dtin')){const d=parse(el.value);if(d)el.value=dot(d)}}
   function normAll(){IDS.forEach(i=>norm($(i)))}
   function load(){try{const s=JSON.parse(localStorage.getItem('soxl-ma20')||'null');if(s){IDS.forEach(i=>{if(s[i]!=null)$(i).value=s[i]});normAll();return true}}catch(e){}return false}
-  function fill(obj){IDS.forEach(i=>$(i).value=obj[i]!=null?obj[i]:'');normAll();document.querySelectorAll('input.needs').forEach(x=>x.classList.remove('needs'))}
+  function fill(obj){IDS.forEach(i=>{if(i==='mult'&&obj.mult==null)return;$(i).value=obj[i]!=null?obj[i]:''});normAll();document.querySelectorAll('input.needs').forEach(x=>x.classList.remove('needs'))}
   function toast(t){['toast','toast2'].forEach(k=>$(k).textContent=t);clearTimeout(toast._t);toast._t=setTimeout(()=>['toast','toast2'].forEach(k=>$(k).textContent=''),3200)}
 
-  $('form').addEventListener('input',e=>{if(e.target.classList)e.target.classList.remove('needs');save();calc()});
+  const AUTO=['ma','cash','hold','bn','sn','seed','cyc'];
+  $('form').addEventListener('input',e=>{const id=e.target.id;if(e.target.classList)e.target.classList.remove('needs');
+    if(AUTO.includes(id)){const m=new Set(($('man').value||'').split(',').filter(Boolean));if(e.target.value.trim()==='')m.delete(id);else m.add(id);$('man').value=[...m].join(',')}
+    if(id==='pc'||id==='date'){const m=new Set(($('man').value||'').split(',').filter(Boolean));['ma'].forEach(x=>m.delete(x));$('man').value=[...m].join(',')}
+    save();calc()});
   $('form').addEventListener('submit',e=>e.preventDefault());
   $('form').addEventListener('focusout',e=>{norm(e.target);save()});
   $('btnPick').onclick=()=>{const p=$('datePick'),d=parse($('date').value);p.value=d?iso(d):'';try{p.showPicker()}catch(e){p.focus();p.click()}};
@@ -350,8 +418,8 @@ const XLSX_SRC='./xlsx.full.min.js';
   $('btnClear').onclick=()=>{fill({});save();calc();toast('입력값을 비웠습니다.')};
   $('btnCopy').onclick=()=>{
     if(!last)return;const o=last.o,d=last.D?dot(last.D):'';
-    const L=[`SOXL 예약주문 ${d}`,`매수1 ${f2(o.b1)} × ${fi(o.q1)}`,`매수2 ${f2(o.b2)} × ${fi(o.q2)}`];
-    [['매도1',o.s1],['매도2',o.s2],['매도3',o.s3]].forEach(([n,s])=>L.push(s[0]>0&&s[1]>0?`${n} ${f2(s[0])} × ${fi(s[1])}`:`${n} 없음`));
+    const L=[`SOXL LOC 예약주문 ${d}`+(MUL()!==1?` (배수 ${MUL()})`:''),`매수1 ${f2(o.b1)} × ${fi(sq(o.q1))}`,`매수2 ${f2(o.b2)} × ${fi(sq(o.q2))}`];
+    [['매도1',o.s1],['매도2',o.s2],['매도3',o.s3]].forEach(([n,s])=>L.push(s[0]>0&&sq(s[1])>0?`${n} ${f2(s[0])} × ${fi(sq(s[1]))}`+(n==='매도3'&&o.s3all?' (보유 전량)':''):`${n} 없음`));
     const txt=L.join('\n');
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('주문 내용을 복사했습니다.'),()=>toast(txt.replace(/\n/g,' · ')))}else toast(txt.replace(/\n/g,' · '));
   };
@@ -362,10 +430,11 @@ const XLSX_SRC='./xlsx.full.min.js';
     set('ys1',o.s1[0]);set('yn1',o.s1[1]);set('ys2',o.s2[0]);set('yn2',o.s2[1]);set('ys3',o.s3[0]);set('yn3',o.s3[1]);
     if(last.D)$('date').value=dot(step(last.D,1));
     $('avg').value='';
-    ['bp','bn','sp','sn'].forEach(i=>$(i).value='');
-    ['cash','hold','pc','ma','bp','bn','sp','sn'].forEach(i=>$(i).classList.add('needs'));
-    save();calc();toast('기록을 저장하고 다음 거래일로 넘겼습니다. 노란 칸을 장 마감 결과로 채우세요.');
-    setTab('in');$('cash').focus();
+    $('pcash').value=String(num('cash'));$('phold').value=String(Math.round(num('hold')));$('pseed').value=String(num('seed'));$('pcyc').value=String(Math.round(num('cyc')));$('man').value='';
+    ['pc','ma','bn','sn'].forEach(i=>$(i).value='');
+    $('pc').classList.add('needs');
+    save();calc();toast('저장하고 다음 거래일로 넘겼습니다. 장 마감 후 전일종가만 넣으세요.');
+    setTab('in');$('pc').focus();
   };
 
 
@@ -384,7 +453,7 @@ const XLSX_SRC='./xlsx.full.min.js';
     if(!last){toast('계산 결과가 없어 저장하지 못했습니다.');return false}
     const D=last.D;if(!D){toast('주문일을 넣어야 저장할 수 있습니다.');$('date').focus();return false}
     const dI=iso(D),o=last.o,hold=Math.round(num('hold'));
-    const bp=num('bp'),bn=num('bn'),sp=num('sp'),sn=num('sn');
+    const bn=num('bn'),sn=num('sn'),bp=bn>0?num('pc'):0,sp=sn>0?num('pc'):0;
     const pr=prevRow(dI);
     let cyc=Math.round(num('cyc'));
     if(last.start&&pr&&pr[20]>0&&pr[1]===cyc){cyc=cyc+1;$('cyc').value=fmtIn(cyc)}
@@ -398,7 +467,7 @@ const XLSX_SRC='./xlsx.full.min.js';
     const row=[dI,cyc||0,num('seed'),num('cash'),o.b1,o.q1,o.b2,o.q2,o.s1[0]||0,o.s1[1]||0,o.s2[0]||0,o.s2[1]||0,o.s3[0]||0,o.s3[1]||0,num('pc'),avgOut,bp,bn,sp,sn,hold,real,num('ma')];
     const i=LOG.findIndex(x=>x[0]===dI);
     if(i>=0)LOG[i]=row;else LOG.push(row);
-    lsort();if(!lsave())return false;renderLog();save();
+    lsort();if(!lsave())return false;renderLog();save();push({op:'put',rows:[row]});
     if(!quiet)toast(dot(D)+' 기록을 '+(i>=0?'덮어썼습니다':'저장했습니다')+' (총 '+LOG.length+'일)'+(noavg?' · 첫 기록이라 당일실현은 0으로 넣었습니다. 전일평단을 넣으면 계산됩니다.':''));
     return true;
   }
@@ -421,7 +490,7 @@ const XLSX_SRC='./xlsx.full.min.js';
   }
   $('logBody').addEventListener('click',e=>{const b=e.target.closest('button.del');if(!b)return;const d=b.dataset.d;
     if(b.dataset.arm!=='1'){b.dataset.arm='1';b.textContent='한번 더';setTimeout(()=>{if(b.isConnected){b.dataset.arm='';b.textContent='삭제'}},2500);return}
-    LOG=LOG.filter(x=>x[0]!==d);lsave();renderLog();toast(d.replace(/-/g,'.')+' 기록을 지웠습니다.')});
+    LOG=LOG.filter(x=>x[0]!==d);lsave();renderLog();push({op:'del',dates:[d]});toast(d.replace(/-/g,'.')+' 기록을 지웠습니다.')});
   $('btnSave').onclick=()=>saveRow(false);
 
   function needX(){return new Promise((res,rej)=>{if(window.XLSX)return res(window.XLSX);const sc=document.createElement('script');sc.src=XLSX_SRC;sc.onload=()=>res(window.XLSX);sc.onerror=()=>rej();document.head.appendChild(sc)})}
@@ -455,10 +524,63 @@ const XLSX_SRC='./xlsx.full.min.js';
         const row=[dI,Math.round(pn(String(r[1]||'').replace(/\D/g,'')))||0];
         for(let j=2;j<COLS.length;j++){const v=pn(r[j]);row.push(isFinite(v)?v:0)}
         const k=LOG.findIndex(x=>x[0]===dI);if(k>=0)LOG[k]=row;else LOG.push(row);n++}
-      lsort();lsave();renderLog();toast(n+'일치 기록을 불러왔습니다 (총 '+LOG.length+'일).');
+      lsort();lsave();renderLog();push({op:'put',rows:LOG});toast(n+'일치 기록을 불러왔습니다 (총 '+LOG.length+'일).');
     }catch(er){toast('파일을 읽지 못했습니다. 원래 기록 엑셀(첫 시트, A열 날짜)인지 확인하세요.')}
   };
   lload();renderLog();
+
+  /* ===== 구글 시트 백업 ===== */
+  const SKEY='soxl-ma20-sync';
+  const SYNC={url:'',token:'',dirty:false,last:''};
+  try{Object.assign(SYNC,JSON.parse(localStorage.getItem(SKEY)||'{}'))}catch(e){}
+  const ssave=()=>{try{localStorage.setItem(SKEY,JSON.stringify(SYNC))}catch(e){}};
+  const sOn=()=>/^https:\/\/script\.google(usercontent)?\.com\//.test(SYNC.url)&&!!SYNC.token;
+  function sstat(err){const el=$('sStat');
+    if(!sOn()){el.className='sstat';el.textContent='구글 시트 백업: 꺼짐 · 아래 설정을 열어 연결하세요';return}
+    if(err&&!SYNC.dirty){el.className='sstat bad';el.textContent='구글 시트 백업: 연결 실패 ('+err+')';return}
+    if(SYNC.dirty){el.className='sstat bad';el.textContent='구글 시트 백업: 올리지 못한 기록이 있습니다'+(err?' ('+err+')':'')+' · 인터넷 연결 후 자동으로 다시 올립니다';return}
+    el.className='sstat ok';el.textContent='구글 시트 백업: 연결됨'+(SYNC.last?' · 마지막 '+SYNC.last:'');}
+  async function api(body){
+    let r;
+    if(body)r=await fetch(SYNC.url,{method:'POST',body:JSON.stringify(Object.assign({token:SYNC.token},body))});
+    else r=await fetch(SYNC.url+(SYNC.url.indexOf('?')>=0?'&':'?')+'token='+encodeURIComponent(SYNC.token));
+    let j;try{j=await r.json()}catch(e){throw new Error('응답을 읽지 못함 · URL과 배포 설정 확인')}
+    if(!j.ok)throw new Error(j.err||'오류');return j;
+  }
+  const stamp=()=>{const t=new Date();return (t.getMonth()+1)+'/'+t.getDate()+' '+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')};
+  let busy=Promise.resolve();
+  function push(body){
+    if(!sOn())return Promise.resolve(false);
+    busy=busy.then(async()=>{
+      try{
+        if(SYNC.dirty){await api({op:'put',rows:LOG,replace:true});SYNC.dirty=false}
+        else await api(body);
+        SYNC.last=stamp();ssave();sstat();return true;
+      }catch(e){SYNC.dirty=true;ssave();sstat(e.message);return false}
+    });
+    return busy;
+  }
+  async function pull(quiet){
+    if(!sOn()){toast('먼저 URL과 비밀번호를 넣고 연결하세요.');return}
+    try{
+      const j=await api(null);let n=0;
+      (j.rows||[]).forEach(row=>{const k=LOG.findIndex(x=>x[0]===row[0]);if(k>=0)LOG[k]=row;else LOG.push(row);n++});
+      lsort();lsave();renderLog();SYNC.last=stamp();ssave();sstat();
+      if(!quiet||n)toast('구글 시트에서 '+n+'일치 기록을 불러왔습니다 (총 '+LOG.length+'일).');
+      if(LOG.length>n)push({op:'put',rows:LOG});
+    }catch(e){sstat(e.message);toast('시트에서 불러오지 못했습니다: '+e.message)}
+  }
+  $('gUrl').value=SYNC.url;$('gTok').value=SYNC.token;
+  $('gSave').onclick=async()=>{
+    SYNC.url=$('gUrl').value.trim();SYNC.token=$('gTok').value;ssave();
+    if(!sOn()){sstat();toast('URL은 https://script.google.com/ 으로 시작해야 하고 비밀번호가 필요합니다.');return}
+    toast('연결 확인 중…');await pull(false);
+  };
+  $('gPull').onclick=()=>pull(false);
+  $('gPush').onclick=async()=>{if(!sOn()){toast('먼저 연결하세요.');return}SYNC.dirty=true;ssave();const ok=await push();toast(ok?'전체 기록 '+LOG.length+'일을 시트에 올렸습니다.':'올리지 못했습니다. 인터넷 연결과 설정을 확인하세요.')};
+  window.addEventListener('online',()=>{if(SYNC.dirty)push()});
+  sstat();
+  if(sOn()){if(!LOG.length)pull(true);else if(SYNC.dirty)push()}
 
   $('tabIn').onclick=()=>setTab('in');$('tabOut').onclick=()=>setTab('out');$('tabLog').onclick=()=>setTab('log');$('mbarBtn').onclick=()=>setTab('out');
   document.body.dataset.tab='in';
