@@ -300,10 +300,19 @@ const XLSX_SRC='./xlsx.full.min.js';
     return v.reduce((a,b)=>a+b,0)/20;
   }
   const YIDS=['yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3'];
+  function avgFromLog(dISO){
+    // dISO 기록까지, 가장 최근 사이클 시작(보유 0) 이후의 체결을 다시 계산해 평단 복원
+    const R=LOG.filter(x=>x[0]<=dISO);let i=R.length-1;
+    while(i>0&&R[i-1][20]>0)i--;
+    let a=0,h=i>0?R[i-1][20]:0;
+    for(let k=i;k<R.length;k++){const r=R[k],bp=r[16]||r[14],bn=r[17]||0,sn=r[19]||0,nh=r[20]||0;
+      a=nh>0?(a*Math.max(0,h-sn)+bp*bn)/nh:0;h=nh}
+    return a;
+  }
   function getBase(D){
     // 전날 기록(있으면) → 없으면 '내일 준비' 때 저장해 둔 값
     if(D&&typeof LOG!=='undefined'){const pr=prevRow(iso(D));
-      if(pr)return {src:'rec',d:pr[0],cash:pr[3],hold:pr[20],avg:pr[15],seed:pr[2],cyc:pr[1],y:pr.slice(4,14)}}
+      if(pr)return {src:'rec',d:pr[0],cash:pr[3],hold:pr[20],avg:(pr[15]>0||!(pr[20]>0))?pr[15]:avgFromLog(pr[0]),seed:pr[2],cyc:pr[1],y:pr.slice(4,14)}}
     const ph=$('phold').value,pca=$('pcash').value;
     if(ph!==''&&pca!=='')return {src:'prep',cash:parseFloat(pca),hold:parseInt(ph,10),avg:parseFloat($('pavg').value)||0,
       seed:parseFloat($('pseed').value)||0,cyc:parseInt($('pcyc').value,10)||0,y:null};
