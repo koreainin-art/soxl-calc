@@ -8,6 +8,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>SOXL 예약주문 계산기</title>
+<script>try{if(JSON.parse(localStorage.getItem("soxl-lock")||"null"))document.documentElement.dataset.locked="1"}catch(e){}</script>
 <style>html{-webkit-text-size-adjust:100%}body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}</style>
 
 <style>
@@ -143,6 +144,27 @@ label .auto:empty{display:none}
 .sync .fields{margin-bottom:10px}
 .sstat{font-size:.82rem;padding:6px 10px;border-radius:8px;background:var(--bg);color:var(--muted)}
 .sstat.ok{background:var(--ok-soft);color:var(--ok)} .sstat.bad{background:var(--warn-soft);color:var(--warn)}
+
+html[data-locked="1"] .wrap{visibility:hidden}
+#lockScr{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px}
+html[data-locked="1"] #lockScr{display:flex}
+#lockScr img{width:72px;height:72px;border-radius:17px}
+#lockScr .lt{font-size:1.1rem;font-weight:700}
+#lockScr .lm{color:var(--muted);font-size:.88rem;min-height:1.3em;text-align:center}
+.dots{display:flex;gap:14px}.dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--accent)}.dots i.on{background:var(--accent)}
+.dots.shake{animation:sh .35s}@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.pad{display:grid;grid-template-columns:repeat(3,72px);gap:12px}
+.pad button{height:72px;border-radius:50%;font-size:1.4rem;font-weight:600;background:var(--panel)}
+.pad button.ghost{border-color:transparent;background:transparent;font-size:1rem}
+#lockScr .forgot{background:none;border:0;color:var(--muted);font-size:.82rem;text-decoration:underline}
+dialog#lockDlg{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);max-width:340px;width:calc(100% - 32px);padding:18px}
+dialog#lockDlg::backdrop{background:rgba(0,0,0,.45)}
+#lockDlg h3{margin:0 0 6px;font-size:1.05rem}#lockDlg p{margin:0 0 10px;color:var(--muted);font-size:.85rem}
+#lockDlg label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;margin-bottom:10px}
+#lockDlg input[type=password]{font:inherit;font-size:1.1rem;letter-spacing:.3em;padding:8px 10px;border:1px solid var(--fieldline);border-radius:8px;background:var(--field);color:var(--ink)}
+#lockDlg .chk{flex-direction:row;align-items:center;gap:8px}
+#lockDlg .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px}
+#lockDlg .err{color:var(--buy);font-size:.82rem;min-height:1.2em}
 </style>
 </head>
 <body>
@@ -155,6 +177,7 @@ label .auto:empty{display:none}
       <p class="sub">MA20·MA120 규칙 · LOC(지정가 종가) 주문 · 매일 전일종가만 넣으면 체결·잔금·보유·이평선이 자동으로 계산됩니다</p>
     </div>
     <div class="tools">
+      <button id="btnLock" type="button">🔒 잠금 설정</button>
       <button id="btnExample" type="button">예시 불러오기 (8/13)</button>
       <button id="btnClear" type="button">전체 비우기</button>
     </div>
@@ -632,5 +655,93 @@ const XLSX_SRC='./xlsx.full.min.js';
 })();
 </script>
 
+
+<div id="lockScr" role="dialog" aria-label="잠금 해제">
+  <img src="icon-192.png" alt="">
+  <div class="lt">SOXL 계산기 잠금</div>
+  <div class="dots" id="lkDots"></div>
+  <div class="lm" id="lkMsg">비밀번호를 입력하세요</div>
+  <div class="pad" id="lkPad"></div>
+  <button type="button" class="forgot" id="lkForgot">비밀번호를 잊었어요</button>
+</div>
+<dialog id="lockDlg">
+  <h3>잠금 설정</h3>
+  <p id="ldInfo">앱을 열 때 비밀번호(숫자 4~6자리) 또는 생체인증을 요구합니다.</p>
+  <label id="ldCurW">현재 비밀번호<input type="password" id="ldCur" inputmode="numeric" maxlength="6" autocomplete="off"></label>
+  <label>새 비밀번호 (숫자 4~6자리)<input type="password" id="ldNew" inputmode="numeric" maxlength="6" autocomplete="off"></label>
+  <label>새 비밀번호 확인<input type="password" id="ldNew2" inputmode="numeric" maxlength="6" autocomplete="off"></label>
+  <label class="chk" id="ldBioW"><input type="checkbox" id="ldBio"> Face ID / 지문으로도 열기</label>
+  <div class="err" id="ldErr"></div>
+  <div class="row"><button type="button" id="ldOff">잠금 끄기</button><button type="button" id="ldClose">닫기</button><button type="button" class="primary" id="ldSave">저장</button></div>
+</dialog>
+<script>
+(function(){
+  const K='soxl-lock',$=id=>document.getElementById(id),root=document.documentElement;
+  const get=()=>{try{return JSON.parse(localStorage.getItem(K)||'null')}catch(e){return null}};
+  const put=v=>{try{v?localStorage.setItem(K,JSON.stringify(v)):localStorage.removeItem(K)}catch(e){}};
+  const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const unb64=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+  const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+  async function hash(pin,salt){const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+':'+pin));return b64(d)}
+  async function bioAvail(){try{return !!(window.PublicKeyCredential&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())}catch(e){return false}}
+  let buf='',fails=0,until=0;
+  const L=()=>get();
+  function dots(){const n=(L()||{}).len||4;$('lkDots').innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<buf.length?'on':''}"></i>`).join('')}
+  function msg(t){$('lkMsg').textContent=t}
+  function lock(){if(!L())return;buf='';root.dataset.locked='1';dots();msg('비밀번호를 입력하세요');pad()}
+  function unlock(){delete root.dataset.locked;buf='';fails=0}
+  function pad(){const c=L()||{};
+    $('lkPad').innerHTML=[1,2,3,4,5,6,7,8,9].map(n=>`<button type="button" data-k="${n}">${n}</button>`).join('')+
+      (c.cred?'<button type="button" class="ghost" data-k="bio" aria-label="생체인증">Face ID·지문</button>':'<span></span>')+
+      '<button type="button" data-k="0">0</button><button type="button" class="ghost" data-k="del" aria-label="지우기">⌫</button>'}
+  async function bio(){const c=L();if(!c||!c.cred)return;
+    try{await navigator.credentials.get({publicKey:{challenge:rnd(32),allowCredentials:[{type:'public-key',id:unb64(c.cred)}],userVerification:'required',timeout:60000}});unlock()}
+    catch(e){msg('생체인증이 취소됐습니다. 비밀번호를 입력하세요')}}
+  async function key(k){
+    if(k==='bio')return bio();
+    if(Date.now()<until){msg('잠시 후 다시 시도하세요 ('+Math.ceil((until-Date.now())/1000)+'초)');return}
+    if(k==='del'){buf=buf.slice(0,-1);dots();return}
+    const c=L();if(!c)return unlock();
+    if(buf.length>=c.len)return;buf+=k;dots();
+    if(buf.length===c.len){
+      if(await hash(buf,c.salt)===c.hash){unlock();return}
+      fails++;buf='';const d=$('lkDots');d.classList.add('shake');setTimeout(()=>d.classList.remove('shake'),400);dots();
+      if(fails>=5){until=Date.now()+30000;fails=0;msg('5번 틀렸습니다. 30초 뒤 다시 시도하세요')}else msg('비밀번호가 맞지 않습니다 ('+fails+'/5)')}}
+  $('lkPad').addEventListener('click',e=>{const b=e.target.closest('button');if(b)key(b.dataset.k)});
+  document.addEventListener('keydown',e=>{if(root.dataset.locked!=='1')return;if(/^[0-9]$/.test(e.key))key(e.key);else if(e.key==='Backspace')key('del')});
+  $('lkForgot').onclick=()=>{
+    if(!confirm('비밀번호를 잊으면 이 휴대폰에 저장된 계산기 입력값과 매매기록, 구글 시트 연결 정보를 모두 지워야 잠금이 풀립니다.\n\n구글 시트에 백업해 두었다면, 나중에 시트 주소와 백업 비밀번호를 다시 넣어 기록을 불러올 수 있습니다.\n\n계속할까요?'))return;
+    if(!confirm('정말 모두 지우고 잠금을 풀까요? 되돌릴 수 없습니다.'))return;
+    try{Object.keys(localStorage).filter(k=>k.startsWith('soxl')).forEach(k=>localStorage.removeItem(k))}catch(e){}
+    location.reload()};
+  // auto-lock after 1 minute in background
+  let hid=0;document.addEventListener('visibilitychange',()=>{if(document.hidden)hid=Date.now();else if(hid&&Date.now()-hid>60000)lock()});
+  // settings dialog
+  const dlg=$('lockDlg');
+  async function openDlg(){const c=L();['ldCur','ldNew','ldNew2'].forEach(i=>$(i).value='');$('ldErr').textContent='';
+    $('ldCurW').hidden=!c;$('ldOff').hidden=!c;
+    $('ldInfo').textContent=c?'잠금이 켜져 있습니다. 비밀번호를 바꾸거나 생체인증을 켜고 끌 수 있습니다. (바꾸지 않으려면 새 비밀번호 칸을 비워 두세요)':'앱을 열 때와 1분 이상 다른 앱을 쓰다 돌아올 때 비밀번호(숫자 4~6자리) 또는 생체인증을 요구합니다.';
+    const ok=await bioAvail();$('ldBioW').hidden=!ok;$('ldBio').checked=!!(c&&c.cred);
+    if(dlg.showModal)dlg.showModal();else dlg.setAttribute('open','')}
+  const close=()=>{if(dlg.close)dlg.close();else dlg.removeAttribute('open')};
+  $('btnLock').onclick=openDlg;$('ldClose').onclick=close;
+  async function checkCur(){const c=L();if(!c)return true;if(await hash($('ldCur').value,c.salt)===c.hash)return true;$('ldErr').textContent='현재 비밀번호가 맞지 않습니다.';return false}
+  $('ldOff').onclick=async()=>{if(!await checkCur())return;put(null);close();alert('잠금을 껐습니다.')};
+  $('ldSave').onclick=async()=>{
+    const c=L(),n=$('ldNew').value,n2=$('ldNew2').value;$('ldErr').textContent='';
+    if(!await checkCur())return;
+    let v=c?{...c}:null;
+    if(n||!c){if(!/^[0-9]{4,6}$/.test(n)){$('ldErr').textContent='숫자 4~6자리로 넣어 주세요.';return}
+      if(n!==n2){$('ldErr').textContent='두 비밀번호가 다릅니다.';return}
+      const salt=b64(rnd(16));v={...(v||{}),salt,hash:await hash(n,salt),len:n.length}}
+    if($('ldBio').checked&&!$('ldBioW').hidden){if(!v.cred){try{
+        const cr=await navigator.credentials.create({publicKey:{challenge:rnd(32),rp:{name:'SOXL 계산기'},user:{id:rnd(16),name:'soxl',displayName:'SOXL 계산기'},
+          pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'discouraged'},timeout:60000}});
+        v.cred=b64(cr.rawId)}catch(e){$('ldErr').textContent='생체인증 등록이 취소됐거나 이 기기에서 지원되지 않습니다. 비밀번호만 저장하려면 체크를 끄세요.';return}}}
+    else delete v.cred;
+    put(v);close();alert('잠금을 설정했습니다. 앱을 열 때와 1분 이상 나갔다 올 때 잠깁니다.')};
+  if(L())lock();
+})();
+</script>
 </body>
 </html>
