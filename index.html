@@ -688,15 +688,16 @@ const XLSX_SRC='./xlsx.full.min.js';
   const L=()=>get();
   function dots(){const n=(L()||{}).len||4;$('lkDots').innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<buf.length?'on':''}"></i>`).join('')}
   function msg(t){$('lkMsg').textContent=t}
-  function lock(){if(!L())return;buf='';root.dataset.locked='1';dots();msg('비밀번호를 입력하세요');pad()}
+  let bioBusy=false;
+  function lock(){const c=L();if(!c)return;buf='';root.dataset.locked='1';dots();msg(c.cred?'지문·얼굴 인식 중… (취소하면 비밀번호 입력)':'비밀번호를 입력하세요');pad();if(c.cred)setTimeout(()=>{if(root.dataset.locked==='1'&&!document.hidden)bio()},250)}
   function unlock(){delete root.dataset.locked;buf='';fails=0}
   function pad(){const c=L()||{};
     $('lkPad').innerHTML=[1,2,3,4,5,6,7,8,9].map(n=>`<button type="button" data-k="${n}">${n}</button>`).join('')+
       (c.cred?'<button type="button" class="ghost" data-k="bio" aria-label="생체인증">Face ID·지문</button>':'<span></span>')+
       '<button type="button" data-k="0">0</button><button type="button" class="ghost" data-k="del" aria-label="지우기">⌫</button>'}
-  async function bio(){const c=L();if(!c||!c.cred)return;
+  async function bio(){const c=L();if(!c||!c.cred||bioBusy)return;bioBusy=true;
     try{await navigator.credentials.get({publicKey:{challenge:rnd(32),allowCredentials:[{type:'public-key',id:unb64(c.cred)}],userVerification:'required',timeout:60000}});unlock()}
-    catch(e){msg('생체인증이 취소됐습니다. 비밀번호를 입력하세요')}}
+    catch(e){msg('비밀번호를 입력하거나 아래 지문·얼굴 버튼을 누르세요')}finally{bioBusy=false}}
   async function key(k){
     if(k==='bio')return bio();
     if(Date.now()<until){msg('잠시 후 다시 시도하세요 ('+Math.ceil((until-Date.now())/1000)+'초)');return}
