@@ -1,7 +1,7 @@
 {
   "name": "SOXL 예약주문 계산기",
   "short_name": "SOXL 주문",
-  "description": "MA20 추천안 규칙으로 매일의 SOXL LOC 예약주문을 계산하고 기록합니다.",
+  "description": "MA20·MA120 규칙으로 매일의 SOXL LOC 예약주문을 계산하고 기록합니다.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

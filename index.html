@@ -152,7 +152,7 @@ label .auto:empty{display:none}
   <header>
     <div>
       <h1>SOXL 예약주문 계산기</h1>
-      <p class="sub">MA20 추천안 · LOC(지정가 종가) 주문 · 매일 전일종가만 넣으면 체결·잔금·보유가 자동으로 계산됩니다</p>
+      <p class="sub">MA20·MA120 규칙 · LOC(지정가 종가) 주문 · 매일 전일종가만 넣으면 체결·잔금·보유·이평선이 자동으로 계산됩니다</p>
     </div>
     <div class="tools">
       <button id="btnExample" type="button">예시 불러오기 (8/13)</button>
@@ -169,6 +169,7 @@ label .auto:empty{display:none}
           <label class="full">주문일 (미국 날짜)<span class="dt"><input id="date" class="dtin" type="text" inputmode="numeric" placeholder="2026.09.28" maxlength="10"><button type="button" id="btnPick" aria-label="달력에서 고르기">📅</button></span><input id="datePick" class="pick" type="date" tabindex="-1" aria-hidden="true"></label>
           <label>전일종가<input id="pc" type="text" inputmode="decimal" data-num></label>
           <label>MA20 (20일선) <span class="auto" id="maAuto"></span><input id="ma" type="text" inputmode="decimal" data-num></label>
+          <label>MA120 (120일선) <span class="auto" id="ma120Auto"></span><input id="ma120" type="text" inputmode="decimal" data-num></label>
           <label>잔금 <span class="auto" id="cashAuto"></span><input id="cash" type="text" inputmode="decimal" data-num></label>
           <label>누적보유수 <span class="auto" id="holdAuto"></span><input id="hold" type="text" inputmode="numeric" data-num></label>
           <label>평단 <span class="auto" id="avgAuto"></span><input id="avg" type="text" inputmode="decimal" data-num></label>
@@ -229,8 +230,8 @@ label .auto:empty{display:none}
         <button id="btnNext" class="primary" type="button">저장하고 내일 준비 →</button>
       </div>
       <div class="toast" id="toast"></div>
-      <p class="foot">매일 할 일: 장 마감 후 <b>전일종가</b>만 넣으면 전날 기록을 기준으로 어제 주문의 체결, 잔금, 보유수, 평단, 사이클이 자동 계산됩니다. 첫날(기록이 없을 때)만 잔금·보유수·평단을 직접 넣으세요. MA20은 기록이 20일 이상 쌓이면 자동으로 채워지고, 그 전에는 차트의 20일선 값을 넣으세요. 결과를 LOC 주문으로 걸고 "저장하고 내일 준비"를 누르면 끝입니다. 초록색 "자동" 표시가 있는 칸도 직접 고칠 수 있습니다.</p>
-      <p class="foot">규칙: 전일종가가 MA20보다 위면 매도3 +3.5%, 매도3 개수는 항상 1.2배. 체결가는 모두 종가(LOC). 5분봉 검증(2016~2026, LOC 체결): 연평균 약 48%, 최대낙폭 약 −37% (VWAP 체결이었다면 약 40%). 과거 성과가 미래를 보장하지 않습니다.</p>
+      <p class="foot">매일 할 일: 장 마감 후 <b>전일종가</b>만 넣으면 전날 기록을 기준으로 어제 주문의 체결, 잔금, 보유수, 평단, 사이클이 자동 계산됩니다. 첫날(기록이 없을 때)만 잔금·보유수·평단을 직접 넣으세요. MA20·MA120은 앱에 들어 있는 SOXL 종가 이력(2026.10.1까지)과 이후 기록의 전일종가로 자동 계산됩니다. 기록을 하루라도 건너뛰면 그 사이 종가가 비어 수동 입력이 필요할 수 있습니다. 결과를 LOC 주문으로 걸고 "저장하고 내일 준비"를 누르면 끝입니다. 초록색 "자동" 표시가 있는 칸도 직접 고칠 수 있습니다.</p>
+      <p class="foot">규칙: 기본 공식 + 전일종가가 MA20 위면 매수2 = 전일종가 +2%(상승장에서도 꾸준히 매수)·매도3 가격 +3.5%(더 오래 끌고 감) + 매도3 개수는 전일종가가 MA120 이상이면 1.0배, 미만이면 1.2배(하락장에서 더 빨리 정리). 체결가는 모두 종가(LOC). 백테스트(2014~2026, 매년 1만 달러 시작, 종가 체결): 연복리 약 50%, 사이클 중 최대 평가손 약 −38%, 상승장이 길면 사이클이 1~2년 이어질 수 있음. 과거 성과가 미래를 보장하지 않습니다.</p>
     </aside>
   </div>
 
@@ -269,7 +270,9 @@ const XLSX_SRC='./xlsx.full.min.js';
 (function(){
   const HOL=new Set(['2025-01-01','2025-01-09','2025-01-20','2025-02-17','2025-04-18','2025-05-26','2025-06-19','2025-07-04','2025-09-01','2025-11-27','2025-12-25','2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25',
     '2027-01-01','2027-01-18','2027-02-15','2027-03-26','2027-05-31','2027-06-18','2027-07-05','2027-09-06','2027-11-25','2027-12-24']);
-  const IDS=['date','mult','cyc','avg','seed','cash','hold','pc','ma','bn','sn','pcash','phold','pseed','pavg','pcyc','man','yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3','w1p','w1q','w1d','w2p','w2q','w2d'];
+  // SOXL 종가 이력 (YYMMDD:종가) — MA20·MA120 자동 계산용. 이후 날짜는 기록의 전일종가로 이어 붙음
+  const PX={"250303":20.51,"250304":20.65,"250305":21.95,"250306":19.23,"250307":20.88,"250310":17.99,"250311":17.41,"250312":18.3,"250313":18.09,"250314":19.8,"250317":20.79,"250318":19.93,"250319":20.38,"250320":19.93,"250321":19.28,"250324":21.0,"250325":20.55,"250326":18.79,"250327":17.76,"250328":16.03,"250331":15.95,"250401":15.95,"250402":16.26,"250403":11.41,"250404":8.73,"250407":9.15,"250408":8.25,"250409":12.77,"250410":9.63,"250411":10.23,"250414":10.47,"250415":10.6,"250416":9.34,"250417":9.2,"250421":8.71,"250422":9.18,"250423":10.29,"250424":12.0,"250425":12.34,"250428":12.29,"250429":11.86,"250430":12.16,"250501":12.1,"250502":13.29,"250505":13.05,"250506":12.64,"250507":13.28,"250508":13.66,"250509":14.11,"250512":17.13,"250513":18.6,"250514":18.84,"250515":18.47,"250516":18.39,"250519":18.06,"250520":17.97,"250521":17.0,"250522":16.51,"250523":15.73,"250527":17.29,"250528":17.04,"250529":17.2,"250530":16.17,"250602":16.9,"250603":18.3,"250604":19.09,"250605":18.81,"250606":19.18,"250609":20.58,"250610":21.89,"250611":21.64,"250612":21.69,"250613":20.04,"250616":21.9,"250617":21.42,"250618":21.61,"250620":21.21,"250623":21.58,"250624":23.95,"250625":24.58,"250626":25.2,"250627":25.11,"250630":25.11,"250701":24.71,"250702":26.05,"250703":26.43,"250707":24.97,"250708":26.37,"250709":26.65,"250710":27.37,"250711":27.29,"250714":26.5,"250715":27.29,"250716":27.03,"250717":27.32,"250718":27.33,"250721":27.5,"250722":26.32,"250723":25.78,"250724":25.62,"250725":25.6,"250728":26.88,"250729":27.03,"250730":27.61,"250731":24.98,"250801":24.08,"250804":25.0,"250805":24.52,"250806":23.99,"250807":25.0,"250808":25.71,"250811":25.61,"250812":28.0,"250813":29.27,"250814":29.42,"250815":27.37,"250818":27.53,"250819":26.24,"250820":25.8,"250821":25.35,"250822":27.45,"250825":27.3,"250826":27.94,"250827":28.18,"250828":28.53,"250829":26.04,"250902":25.25,"250903":24.91,"250904":25.65,"250905":26.45,"250908":27.08,"250909":27.18,"250910":28.6,"250911":29.17,"250912":29.3,"250915":30.0,"250916":30.48,"250917":30.47,"250918":33.64,"250919":33.02,"250922":34.43,"250923":34.3,"250924":34.2,"250925":33.85,"250926":34.02,"250929":34.02,"250930":34.84,"251001":36.86,"251002":39.08,"251003":38.23,"251006":41.71,"251007":38.83,"251008":42.78,"251009":42.24,"251010":34.21,"251013":39.14,"251014":36.63,"251015":39.98,"251016":40.57,"251017":40.29,"251020":42.24,"251021":41.51,"251022":38.39,"251023":41.17,"251024":43.14,"251027":46.84,"251028":46.96,"251029":49.38,"251030":47.39,"251031":47.78,"251103":48.58,"251104":42.8,"251105":46.83,"251106":43.01,"251107":41.74,"251110":44.96,"251111":41.81,"251112":43.71,"251113":39.22,"251114":38.86,"251117":36.84,"251118":34.35,"251119":35.96,"251120":30.81,"251121":31.73,"251124":35.86,"251125":36.17,"251126":39.19,"251128":41.26,"251201":41.31,"251202":43.8,"251203":46.58,"251204":45.16,"251205":46.5,"251208":47.99,"251209":47.79,"251210":49.65,"251211":48.79,"251212":41.71,"251215":41.18,"251216":40.49,"251217":36.01,"251218":38.58,"251219":41.72,"251222":43.26,"251223":43.7,"251224":44.21,"251226":44.21,"251229":43.82,"251230":43.67,"251231":42.03,"260102":47.24,"260105":49.22,"260106":54.01,"260107":52.29,"260108":49.65,"260109":53.95,"260112":54.65,"260113":56.07,"260114":55.38,"260115":58.08,"260116":60.75,"260120":57.94,"260121":63.48,"260122":63.72,"260123":61.6,"260126":60.7,"260127":64.96,"260128":70.09,"260129":70.47,"260130":61.79,"260202":65.2,"260203":61.2,"260204":53.19,"260205":53.25,"260206":61.75,"260209":64.03,"260210":63.34,"260211":68.05,"260212":63.1,"260213":64.59,"260217":64.35,"260218":66.29,"260219":65.23,"260220":67.11,"260223":65.86,"260224":68.53,"260225":71.86,"260226":65.34,"260227":62.77,"260302":62.76,"260303":53.42,"260304":56.62,"260305":54.8,"260306":47.89,"260309":53.32,"260310":54.59,"260311":56.09,"260312":50.28,"260313":50.72,"260316":53.69,"260317":54.95,"260318":54.02,"260319":54.85,"260320":51.14,"260323":53.03,"260324":54.96,"260325":57.04,"260326":48.97,"260327":46.61,"260330":40.62,"260331":47.91,"260401":52.26,"260402":52.75,"260406":54.81,"260407":56.55,"260408":67.5,"260409":71.98,"260410":76.39,"260413":80.56,"260414":85.31,"260415":85.96,"260416":88.37,"260417":94.68,"260420":95.94,"260421":98.09,"260422":105.64,"260423":112.77,"260424":128.32,"260427":123.39,"260428":109.56,"260429":117.97,"260430":126.98,"260501":130.4,"260504":127.55,"260505":144.16,"260506":165.85,"260507":152.1,"260508":176.94,"260511":190.42,"260512":172.52,"260513":184.24,"260514":186.19,"260515":164.18,"260518":151.75,"260519":151.89,"260520":173.2,"260521":178.39,"260522":190.56,"260526":225.79,"260527":217.98,"260528":224.63,"260529":224.34,"260601":227.03,"260602":266.32,"260603":280.54,"260604":262.7,"260605":182.54,"260608":211.44,"260609":201.68,"260610":180.65,"260611":223.99,"260612":234.68,"260615":272.5,"260616":226.19,"260617":233.86,"260618":279.29,"260622":300.77,"260623":231.42,"260624":229.57,"260625":252.61,"260626":215.6,"260629":236.52,"260630":266.71,"260701":217.55,"260702":181.47,"260706":194.65,"260707":165.28,"260708":174.82,"260709":192.45,"260710":192.26,"260713":165.37,"260714":176.66,"260715":165.55,"260716":142.48,"260717":135.47,"260720":136.81,"260721":158.54,"260722":160.99,"260723":157.5,"260724":136.81,"260727":128.15,"260728":109.54,"260729":91.99,"260730":114.72,"260731":114.72,"260803":116.71,"260804":139.9,"260805":132.07,"260806":132.33,"260807":140.25,"260810":130.0,"260811":133.0,"260812":142.16,"260813":145.36,"260814":144.95,"260817":151.53,"260818":129.1,"260819":120.74,"260820":122.21,"260821":120.6,"260824":111.16,"260825":115.67,"260826":116.6,"260827":123.05,"260828":111.34,"260831":112.79,"260901":105.91,"260902":106.35,"260903":106.74,"260904":117.28,"260908":123.27,"260909":125.87,"260910":115.76,"260911":121.82,"260914":101.13,"260915":102.32,"260916":103.97,"260917":114.82,"260918":123.67,"260921":141.93,"260922":151.95,"260923":146.25,"260924":146.33,"260925":151.45,"260928":142.29,"260929":147.0,"260930":147.86,"261001":153.69};
+  const IDS=['date','mult','cyc','avg','seed','cash','hold','pc','ma','ma120','bn','sn','pcash','phold','pseed','pavg','pcyc','man','yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3','w1p','w1q','w1d','w2p','w2q','w2d'];
   const $=id=>document.getElementById(id);
   const pn=v=>{const x=parseFloat(String(v==null?'':v).replace(/,/g,''));return isFinite(x)?x:NaN};
   const num=id=>{const v=pn($(id).value);return isFinite(v)?v:0};
@@ -285,19 +288,21 @@ const XLSX_SRC='./xlsx.full.min.js';
   const tradingDaysAfter=(a,b)=>{let n=0,x=new Date(a);while(x<b){x.setUTCDate(x.getUTCDate()+1);if(x<=b&&isTrade(x))n++}return n};
   const isMon=d=>d&&d.getUTCDay()===1;
 
-  const EXAMPLE={date:'2026.08.13',cyc:29,avg:131.782,seed:14467.67,cash:9009.00,hold:43,pc:142.16,ma:132.69,bn:0,sn:16,
+  const EXAMPLE={date:'2026.08.13',cyc:29,avg:131.782,seed:14467.67,cash:9009.00,hold:43,pc:142.16,ma:'',ma120:'',bn:0,sn:16,
     yb1:129.72,yq1:8,yb2:132.48,yq2:8,ys1:153.26,yn1:7,ys2:135.42,yn2:8,ys3:133.02,yn3:8};
 
   let last=null;
 
   function isMan(id){return ($('man').value||'').split(',').includes(id)}
   function setAuto(id,v,tag){const el=$(id+'Auto');if(isMan(id)){if(el)el.textContent='';return}$(id).value=fmtIn(v);if(el)el.textContent=tag||'자동'}
-  function autoMA(D,pc){
-    if(!D||!(pc>0)||typeof LOG==='undefined')return null;
-    const mp={};LOG.forEach(x=>{if(x[14]>0)mp[x[0]]=x[14]});
-    const v=[pc];let d=D;
-    for(let i=0;i<19;i++){d=step(d,-1);const k=iso(d);if(!(mp[k]>0))return null;v.push(mp[k])}
-    return v.reduce((a,b)=>a+b,0)/20;
+  function closeOf(k,mp){if(mp[k]>0)return mp[k];const x=PX[k.slice(2).replace(/-/g,'')];return x>0?x:0}
+  function autoMA(D,pc,N){
+    // 전일(=주문일 직전 거래일) 종가까지 N일 평균. 종가: 오늘 입력값 → 기록의 전일종가 → 내장 이력 순
+    if(!D||!(pc>0))return null;
+    const mp={};if(typeof LOG!=='undefined')LOG.forEach(x=>{const d=parse(x[0]);if(d&&x[14]>0)mp[iso(step(d,-1))]=x[14]});
+    let d=step(D,-1);mp[iso(d)]=pc;let s=0;
+    for(let i=0;i<N;i++){const c=closeOf(iso(d),mp);if(!(c>0))return null;s+=c;d=step(d,-1)}
+    return s/N;
   }
   const YIDS=['yb1','yq1','yb2','yq2','ys1','yn1','ys2','yn2','ys3','yn3'];
   function avgFromLog(dISO){
@@ -320,11 +325,12 @@ const XLSX_SRC='./xlsx.full.min.js';
   }
   function autoFill(){
     const D=parse($('date').value), pc=num('pc');
-    ['maAuto','cashAuto','holdAuto','avgAuto','bnAuto','snAuto'].forEach(k=>$(k).textContent='');$('fillDetail').textContent='';
+    ['maAuto','ma120Auto','cashAuto','holdAuto','avgAuto','bnAuto','snAuto'].forEach(k=>$(k).textContent='');$('fillDetail').textContent='';
     const B=getBase(D);
     if(B&&B.y&&!YIDS.some(isMan))YIDS.forEach((id,i)=>$(id).value=fmtIn(B.y[i]||0));
     if(!(pc>0))return;
-    const m=autoMA(D,pc); if(m) setAuto('ma',Math.round(m*10000)/10000,'자동');
+    const m=autoMA(D,pc,20); if(m) setAuto('ma',Math.round(m*10000)/10000,'자동');
+    const m2=autoMA(D,pc,120); if(m2) setAuto('ma120',Math.round(m2*10000)/10000,'자동');
     const Y=[['매수1',num('yb1'),num('yq1'),'b'],['매수2',num('yb2'),num('yq2'),'b'],['매도1',num('ys1'),num('yn1'),'s'],['매도2',num('ys2'),num('yn2'),'s'],['매도3',num('ys3'),num('yn3'),'s']];
     let bn=0,sn=0;const det=[];
     Y.forEach(([n,p,q,sd])=>{if(!(p>0&&q>0))return;const ok=sd==='b'?p>=pc:p<=pc;if(ok){sd==='b'?bn+=q:sn+=q}det.push(n+(ok?' ✓'+q:' ✗'))});
@@ -343,7 +349,7 @@ const XLSX_SRC='./xlsx.full.min.js';
   }
   function calc(){
     autoFill();
-    const D=parse($('date').value), seed=num('seed'), cash=num('cash'), hold=Math.round(num('hold')), pc=num('pc'), ma=num('ma');
+    const D=parse($('date').value), seed=num('seed'), cash=num('cash'), hold=Math.round(num('hold')), pc=num('pc'), ma=num('ma'), ma120=num('ma120');
     const bn=num('bn'), sn=num('sn'), bp=pc, sp=pc;
     const chips=[], notes=[];
     if(!(seed>0&&pc>0)){render(null,chips,['사이클시드와 전일종가를 넣으면 계산이 시작됩니다.']);return}
@@ -354,6 +360,7 @@ const XLSX_SRC='./xlsx.full.min.js';
     o.b1=start?r2(pc*1.07-0.04):r2(V*(1-0.042*u));
     o.q1=Math.floor(U/o.b1);
     o.b2=r2(Math.min(pc*0.999,V-0.02));
+    o.b2up=!start&&up; if(o.b2up)o.b2=Math.max(o.b2,r2(pc*1.02));
     o.q2=start?Math.floor(U/o.b2):Math.floor(U/o.b2+0.5);
     o.s1=[0,0];o.s2=[0,0];o.s3=[0,0];
     if(start){
@@ -378,13 +385,16 @@ const XLSX_SRC='./xlsx.full.min.js';
       if(cand.length>2){const c=cand[2];notes.push({t:'로트가 3개입니다. '+f2(c.p)+' × '+c.q+'주를 대기 로트 칸에 적어 두세요 (마지막 주문일: '+(D?dot(D):'오늘')+').'})}
       o.s3p=r2(Math.max(pc+0.02,pc*(1+0.004+(up?0.035:0)+0.64*(V/pc-1))));
       const lq=o.s1[1]+o.s2[1];
-      o.s3=[o.s3p, lq>0?Math.max(0,Math.min(hold-lq,Math.floor(1.2*U/V))):hold];o.s3all=lq===0;
-      chips.push(up?['up','상승추세 · 매도3 +3.5%']:['','MA20 아래 · 기본 매도3']);
+      const weak=!(ma120>0)||pc<ma120, QK=weak?1.2:1.0;
+      o.s3=[o.s3p, lq>0?Math.max(0,Math.min(hold-lq,Math.floor(QK*U/V+1e-9))):hold];o.s3all=lq===0;o.qk=QK;
+      chips.push(up?['up','MA20 위 · 매수2 종가+2% · 매도3 +3.5%']:['','MA20 아래 · 기본 매수2·매도3']);
+      chips.push(weak?['','MA120 아래 · 매도3 개수 1.2배']:['up','MA120 위 · 매도3 개수 1.0배']);
     }
     if(MUL()!==1)chips.push(['warn','주문 ×'+MUL()+'배']);
     if(hold>0&&!(num('avg')>0)){notes.push({t:'평단을 넣어 주세요 (보유 중이면 필수). 전날 기록이 있으면 자동으로 채워집니다.'});$('avg').classList.add('needs')}
     if(!D)notes.push({t:'주문일을 넣으면 월요일 보정과 대기 로트 계산이 정확해집니다.'});
-    if(!start&&!(ma>0))notes.push({t:'MA20 값이 없어 상승추세 가산 없이 계산했습니다. 차트의 20일선 값을 넣으세요 (기록이 20일 쌓이면 자동).'});
+    if(!start&&!(ma>0))notes.push({t:'MA20 값이 없어 +3.5% 가산 없이 계산했습니다. 날짜와 전일종가를 넣으면 자동으로 채워지며, 안 되면 차트의 20일선 값을 넣으세요.'});
+    if(!start&&!(ma120>0))notes.push({t:'MA120 값이 없어 매도3 개수를 1.2배(보수적)로 계산했습니다. 날짜와 전일종가를 넣으면 자동으로 채워지며, 안 되면 차트의 120일선 값을 넣으세요.'});
     if(cash>seed+0.005)notes.push({t:'잔금이 사이클시드보다 큽니다. 입력값을 확인하세요.'});
     last={o,start,D};
     $('kV').textContent=f2(V); $('kU').textContent=(u*100).toFixed(1)+'%'; $('kUnit').textContent=f2(U);
@@ -408,10 +418,10 @@ const XLSX_SRC='./xlsx.full.min.js';
     if(!o){$('orders').innerHTML='';['kV','kU','kUnit'].forEach(k=>$(k).textContent='–');return}
     $('orders').innerHTML=
       row('b','매수1',o.b1,o.q1,last.start?'시작일: 전일종가 +7%':'기준가 V에서 사용비율만큼 낮게')+
-      row('b','매수2',o.b2,o.q2,'전일종가 −0.1% 또는 V −0.02 중 낮은 값')+
+      row('b','매수2',o.b2,o.q2,o.b2up?'MA20 위: 전일종가 +2% (상승장에서도 매수)':'전일종가 −0.1% 또는 V −0.02 중 낮은 값')+
       row('s','매도1',o.s1[0],o.s1[1],o.s1[2]||'두 번째 로트')+
       row('s','매도2',o.s2[0],o.s2[1],o.s2[2]||'최신 로트')+
-      row('s','매도3',o.s3[0],o.s3[1],last.start?'사이클 시작일은 없음':'나머지 풀 · 개수 1.2배',o.s3all);
+      row('s','매도3',o.s3[0],o.s3[1],last.start?'사이클 시작일은 없음':'나머지 풀 · 개수 '+(o.qk===1?'1.0':'1.2')+'배',o.s3all);
   }
 
   function setTab(t){document.body.dataset.tab=t;$('tabIn').setAttribute('aria-selected',t==='in');$('tabOut').setAttribute('aria-selected',t==='out');$('tabLog').setAttribute('aria-selected',t==='log');window.scrollTo(0,0)}
@@ -424,11 +434,11 @@ const XLSX_SRC='./xlsx.full.min.js';
   function fill(obj){IDS.forEach(i=>{if(i==='mult'&&obj.mult==null)return;$(i).value=obj[i]!=null?obj[i]:''});normAll();document.querySelectorAll('input.needs').forEach(x=>x.classList.remove('needs'))}
   function toast(t){['toast','toast2'].forEach(k=>$(k).textContent=t);clearTimeout(toast._t);toast._t=setTimeout(()=>['toast','toast2'].forEach(k=>$(k).textContent=''),3200)}
 
-  const AUTO=['ma','cash','hold','avg','bn','sn','seed','cyc',...YIDS];
+  const AUTO=['ma','ma120','cash','hold','avg','bn','sn','seed','cyc',...YIDS];
   $('form').addEventListener('input',e=>{const id=e.target.id;if(e.target.classList)e.target.classList.remove('needs');
     if(AUTO.includes(id)){const m=new Set(($('man').value||'').split(',').filter(Boolean));if(e.target.value.trim()==='')m.delete(id);else m.add(id);$('man').value=[...m].join(',')}
     if(id==='date')$('man').value='';
-    if(id==='pc'){const m=new Set(($('man').value||'').split(',').filter(Boolean));['ma','bn','sn','cash','hold','avg','seed','cyc'].forEach(x=>m.delete(x));$('man').value=[...m].join(',')}
+    if(id==='pc'){const m=new Set(($('man').value||'').split(',').filter(Boolean));['ma','ma120','bn','sn','cash','hold','avg','seed','cyc'].forEach(x=>m.delete(x));$('man').value=[...m].join(',')}
     save();calc()});
   $('form').addEventListener('submit',e=>e.preventDefault());
   $('form').addEventListener('focusout',e=>{norm(e.target);save()});
@@ -450,7 +460,7 @@ const XLSX_SRC='./xlsx.full.min.js';
     set('ys1',o.s1[0]);set('yn1',o.s1[1]);set('ys2',o.s2[0]);set('yn2',o.s2[1]);set('ys3',o.s3[0]);set('yn3',o.s3[1]);
     if(last.D)$('date').value=dot(step(last.D,1));
     $('pcash').value=String(num('cash'));$('phold').value=String(Math.round(num('hold')));$('pseed').value=String(num('seed'));$('pavg').value=String(num('avg'));$('pcyc').value=String(Math.round(num('cyc')));$('man').value='';
-    ['pc','ma','bn','sn'].forEach(i=>$(i).value='');
+    ['pc','ma','ma120','bn','sn'].forEach(i=>$(i).value='');
     $('pc').classList.add('needs');
     save();calc();toast('저장하고 다음 거래일로 넘겼습니다. 장 마감 후 전일종가만 넣으세요.');
     setTab('in');$('pc').focus();
@@ -511,7 +521,7 @@ const XLSX_SRC='./xlsx.full.min.js';
     $('date').value=d.replace(/-/g,'.');g('cyc',r[1]);g('seed',r[2]);g('cash',r[3]);g('pc',r[14]);g('avg',r[15]);g('bn',r[17]);g('sn',r[19]);g('hold',r[20]);
     if(r[22]>0)g('ma',r[22]);else $('ma').value='';
     YIDS.forEach((id,i)=>g(id,pr?pr[4+i]:0));
-    $('man').value=[...(r[22]>0?['ma']:[]),'cash','hold','avg','bn','sn','seed','cyc',...YIDS].join(',');
+    $('man').value=['cash','hold','avg','bn','sn','seed','cyc',...YIDS].join(',');
     document.querySelectorAll('input.needs').forEach(x=>x.classList.remove('needs'));
     save();calc();setTab('in');window.scrollTo(0,0);
     toast(d.replace(/-/g,'.')+' 기록을 불러왔습니다. 고친 뒤 "기록 저장"을 누르면 그 날짜에 덮어씁니다.');
