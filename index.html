@@ -190,7 +190,7 @@ dialog#lockDlg::backdrop{background:rgba(0,0,0,.45)}
         <h2><span class="n">1</span>오늘 상태</h2>
         <div class="fields">
           <label class="full">주문일 (미국 날짜)<span class="dt"><input id="date" class="dtin" type="text" inputmode="numeric" placeholder="2026.09.28" maxlength="10"><button type="button" id="btnPick" aria-label="달력에서 고르기">📅</button></span><input id="datePick" class="pick" type="date" tabindex="-1" aria-hidden="true"></label>
-          <label>전일종가<input id="pc" type="text" inputmode="decimal" data-num></label>
+          <label>전일종가 <span class="auto" id="pcAuto"></span><input id="pc" type="text" inputmode="decimal" data-num></label>
           <label>MA20 (20일선) <span class="auto" id="maAuto"></span><input id="ma" type="text" inputmode="decimal" data-num></label>
           <label>MA120 (120일선) <span class="auto" id="ma120Auto"></span><input id="ma120" type="text" inputmode="decimal" data-num></label>
           <label>잔금 <span class="auto" id="cashAuto"></span><input id="cash" type="text" inputmode="decimal" data-num></label>
@@ -250,7 +250,7 @@ dialog#lockDlg::backdrop{background:rgba(0,0,0,.45)}
         <button id="btnNext" class="primary" type="button">저장하고 내일 준비 →</button>
       </div>
       <div class="toast" id="toast"></div>
-      <p class="foot">매일 할 일: 장 마감 후 <b>전일종가</b>만 넣으면 전날 기록을 기준으로 어제 주문의 체결, 잔금, 보유수, 평단, 사이클이 자동 계산됩니다. 첫날(기록이 없을 때)만 잔금·보유수·평단을 직접 넣으세요. MA20·MA120은 앱에 들어 있는 SOXL 종가 이력(2026.10.1까지)과 이후 기록의 전일종가로 자동 계산됩니다. 기록을 하루라도 건너뛰면 그 사이 종가가 비어 수동 입력이 필요할 수 있습니다. 결과를 LOC 주문으로 걸고 "저장하고 내일 준비"를 누르면 끝입니다. 초록색 "자동" 표시가 있는 칸도 직접 고칠 수 있습니다.</p>
+      <p class="foot">매일 할 일: 구글 시트 백업이 연결돼 있으면 앱을 열 때 <b>전일종가가 자동으로</b> 채워집니다(새 Apps Script 필요). 자동으로 안 채워지면 장 마감 후 <b>전일종가</b>만 넣으면 전날 기록을 기준으로 어제 주문의 체결, 잔금, 보유수, 평단, 사이클이 자동 계산됩니다. 첫날(기록이 없을 때)만 잔금·보유수·평단을 직접 넣으세요. MA20·MA120은 앱에 들어 있는 SOXL 종가 이력(2026.10.1까지)과 이후 기록의 전일종가로 자동 계산됩니다. 기록을 하루라도 건너뛰면 그 사이 종가가 비어 수동 입력이 필요할 수 있습니다. 결과를 LOC 주문으로 걸고 "저장하고 내일 준비"를 누르면 끝입니다. 초록색 "자동" 표시가 있는 칸도 직접 고칠 수 있습니다.</p>
       <p class="foot">규칙: 기본 공식 + 전일종가가 MA20 위면 매수2 = 전일종가 +2%(상승장에서도 꾸준히 매수)·매도3 가격 +3.5%(더 오래 끌고 감) + 매도3 개수는 전일종가가 MA120 이상이면 1.0배, 미만이면 1.2배(하락장에서 더 빨리 정리). 체결가는 모두 종가(LOC). 백테스트(2014~2026, 매년 1만 달러 시작, 종가 체결): 연복리 약 50%, 사이클 중 최대 평가손 약 −38%, 상승장이 길면 사이클이 1~2년 이어질 수 있음. 과거 성과가 미래를 보장하지 않습니다.</p>
     </aside>
   </div>
@@ -315,7 +315,8 @@ const XLSX_SRC='./xlsx.full.min.js';
 
   function isMan(id){return ($('man').value||'').split(',').includes(id)}
   function setAuto(id,v,tag){const el=$(id+'Auto');if(isMan(id)){if(el)el.textContent='';return}$(id).value=fmtIn(v);if(el)el.textContent=tag||'자동'}
-  function closeOf(k,mp){if(mp[k]>0)return mp[k];const x=PX[k.slice(2).replace(/-/g,'')];return x>0?x:0}
+  let PXX={};try{PXX=JSON.parse(localStorage.getItem('soxl-px')||'{}')||{}}catch(e){}
+  function closeOf(k,mp){if(mp[k]>0)return mp[k];if(PXX[k]>0)return PXX[k];const x=PX[k.slice(2).replace(/-/g,'')];return x>0?x:0}
   function autoMA(D,pc,N){
     // 전일(=주문일 직전 거래일) 종가까지 N일 평균. 종가: 오늘 입력값 → 기록의 전일종가 → 내장 이력 순
     if(!D||!(pc>0))return null;
@@ -379,8 +380,8 @@ const XLSX_SRC='./xlsx.full.min.js';
     const u=1-cash/seed, U=seed/14, start=hold===0;
     const up=ma>0&&pc>ma, mon=isMon(D), prev=D?step(D,-1):null, pmon=isMon(prev);
     const o={};
-    o.b1=start?r2(pc*1.07-0.04):r2(V*(1-0.042*u));
-    o.q1=Math.floor(U/o.b1);
+    o.b1=start?r2(pc*1.17):r2(V*(1-0.042*u));
+    o.q1=start?Math.floor(U/pc+1e-9):Math.floor(U/o.b1);
     o.b2=r2(Math.min(pc*0.999,V-0.02));
     o.b2up=!start&&up; if(o.b2up)o.b2=Math.max(o.b2,r2(pc*1.02));
     o.q2=start?Math.floor(U/o.b2):Math.floor(U/o.b2+0.5);
@@ -450,7 +451,7 @@ const XLSX_SRC='./xlsx.full.min.js';
     const nb=$('notes').querySelector('[data-fix]'); if(nb)nb.onclick=()=>{$('seed').value=$('cash').value;save();calc()};
     if(!o){$('orders').innerHTML='';['kV','kU','kUnit'].forEach(k=>$(k).textContent='–');return}
     $('orders').innerHTML=
-      row('b','매수1',o.b1,o.q1,last.start?'시작일: 전일종가 +7%':'기준가 V에서 사용비율만큼 낮게')+
+      row('b','매수1',o.b1,o.q1,last.start?'시작일: 종가에 무조건 매수 (LOC 한도 = 전일종가×1.17)':'기준가 V에서 사용비율만큼 낮게')+
       row('b','매수2',o.b2,o.q2,o.b2up?'MA20 위: 전일종가 +2% (상승장에서도 매수)':'전일종가 −0.1% 또는 V −0.02 중 낮은 값')+
       row('s','매도1',o.s1[0],o.s1[1],o.s1[2]||'두 번째 로트')+
       row('s','매도2',o.s2[0],o.s2[1],o.s2[2]||'최신 로트')+
@@ -468,7 +469,7 @@ const XLSX_SRC='./xlsx.full.min.js';
   function toast(t){['toast','toast2'].forEach(k=>$(k).textContent=t);clearTimeout(toast._t);toast._t=setTimeout(()=>['toast','toast2'].forEach(k=>$(k).textContent=''),3200)}
 
   const AUTO=['ma','ma120','cash','hold','avg','bn','sn','seed','cyc',...YIDS];
-  $('form').addEventListener('input',e=>{const id=e.target.id;if(e.target.classList)e.target.classList.remove('needs');
+  $('form').addEventListener('input',e=>{const id=e.target.id;if(id==='pc'&&e.isTrusted)$('pcAuto').textContent='';if(e.target.classList)e.target.classList.remove('needs');
     if(AUTO.includes(id)){const m=new Set(($('man').value||'').split(',').filter(Boolean));if(e.target.value.trim()==='')m.delete(id);else m.add(id);$('man').value=[...m].join(',')}
     if(id==='date')$('man').value='';
     if(id==='pc'){const m=new Set(($('man').value||'').split(',').filter(Boolean));['ma','ma120','bn','sn','cash','hold','avg','seed','cyc'].forEach(x=>m.delete(x));$('man').value=[...m].join(',')}
@@ -497,7 +498,7 @@ const XLSX_SRC='./xlsx.full.min.js';
     $('pcash').value=String(num('cash'));$('phold').value=String(Math.round(num('hold')));$('pseed').value=String(num('seed'));$('pavg').value=String(num('avg'));$('pcyc').value=String(Math.round(num('cyc')));$('man').value='';
     ['pc','ma','ma120','bn','sn'].forEach(i=>$(i).value='');
     $('pc').classList.add('needs');
-    save();calc();toast('저장하고 다음 거래일로 넘겼습니다. 장 마감 후 전일종가만 넣으세요.');
+    save();calc();toast('저장하고 다음 거래일로 넘겼습니다. 장 마감 후 전일종가만 넣으세요.');setTimeout(autoClose,500);
     setTab('in');$('pc').focus();
   };
 
@@ -653,7 +654,25 @@ const XLSX_SRC='./xlsx.full.min.js';
   };
   $('gPull').onclick=()=>pull(false);
   $('gPush').onclick=async()=>{if(!sOn()){toast('먼저 연결하세요.');return}SYNC.dirty=true;ssave();const ok=await push();toast(ok?'전체 기록 '+LOG.length+'일을 시트에 올렸습니다.':'올리지 못했습니다. 인터넷 연결과 설정을 확인하세요.')};
-  window.addEventListener('online',()=>{if(SYNC.dirty)push()});
+  window.addEventListener('online',()=>{if(SYNC.dirty)push();autoClose()});
+  /* ===== 전일종가 자동 입력 (구글 Apps Script가 SOXL 종가를 가져옴) ===== */
+  let closeBusy=false;
+  async function autoClose(){
+    if(!sOn()||closeBusy)return;const D=parse($('date').value);if(!D)return;
+    closeBusy=true;
+    try{
+      const r=await fetch(SYNC.url+(SYNC.url.indexOf('?')>=0?'&':'?')+'op=close&token='+encodeURIComponent(SYNC.token));
+      const j=await r.json();if(!j.ok||!Array.isArray(j.closes))return;
+      j.closes.forEach(([d,c])=>{if(c>0)PXX[d]=c});
+      try{localStorage.setItem('soxl-px',JSON.stringify(PXX))}catch(e){}
+      const D2=parse($('date').value);if(!D2)return;
+      const k=iso(step(D2,-1)),c=PXX[k];
+      if(c>0&&!(num('pc')>0)){$('pc').value=fmtIn(c);$('pc').classList.remove('needs');$('pc').dispatchEvent(new Event('input',{bubbles:true}));$('pcAuto').textContent='자동';toast(k.replace(/-/g,'.')+' 종가 '+f2(c)+'을(를) 자동으로 넣었습니다.')}
+      else if(!(c>0)&&!(num('pc')>0))toast(k.replace(/-/g,'.')+' 종가가 아직 없습니다 (미국 장 마감 후 자동으로 채워집니다).');
+    }catch(e){}finally{closeBusy=false}
+  }
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoClose()});
+  $('date').addEventListener('change',autoClose);
   sstat();
   if(sOn()){if(!LOG.length)pull(true);else if(SYNC.dirty)push()}
 
@@ -662,6 +681,7 @@ const XLSX_SRC='./xlsx.full.min.js';
   if(!load())fill(EXAMPLE);
   if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
   calc();
+  setTimeout(autoClose,800);
 })();
 </script>
 

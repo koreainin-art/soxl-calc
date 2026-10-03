@@ -43,8 +43,40 @@ function writeAll_(sh, rows) {
 
 // 앱에서 전체 기록 불러오기
 function doGet(e) {
-  if ((e.parameter || {}).token !== TOKEN) return out_({ ok: false, err: '비밀번호가 맞지 않습니다' });
+  const p = e.parameter || {};
+  if (p.token !== TOKEN) return out_({ ok: false, err: '비밀번호가 맞지 않습니다' });
+  if (p.op === 'close') return out_({ ok: true, closes: closes_() });
   return out_({ ok: true, rows: readAll_(sheet_()) });
+}
+
+// SOXL 최근 종가 (앱의 전일종가 자동 입력용). 장중 미완성 봉은 제외, 10분 캐시
+function closes_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('soxl-closes');
+  if (hit) return JSON.parse(hit);
+  let rows = [];
+  try {
+    const r = UrlFetchApp.fetch('https://query1.finance.yahoo.com/v8/finance/chart/SOXL?range=3mo&interval=1d',
+      { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (r.getResponseCode() === 200) {
+      const j = JSON.parse(r.getContentText()).chart.result[0];
+      const ts = j.timestamp || [], cl = j.indicators.quote[0].close || [];
+      for (let i = 0; i < ts.length; i++) if (cl[i] != null)
+        rows.push([Utilities.formatDate(new Date(ts[i] * 1000), 'America/New_York', 'yyyy-MM-dd'), Math.round(cl[i] * 100) / 100]);
+    }
+  } catch (x) {}
+  if (!rows.length) {
+    try {
+      const t = UrlFetchApp.fetch('https://stooq.com/q/d/l/?s=soxl.us&i=d', { muteHttpExceptions: true }).getContentText();
+      t.trim().split('\n').slice(1).slice(-70).forEach(l => { const c = l.split(','); if (c.length >= 5 && +c[4] > 0) rows.push([c[0], Math.round(+c[4] * 100) / 100]); });
+    } catch (x) {}
+  }
+  // 오늘(미국 날짜) 봉은 장 마감(16:15 ET) 이후에만 확정 종가로 사용
+  const now = new Date(), today = Utilities.formatDate(now, 'America/New_York', 'yyyy-MM-dd');
+  const hm = +Utilities.formatDate(now, 'America/New_York', 'HHmm');
+  if (rows.length && rows[rows.length - 1][0] === today && hm < 1615) rows.pop();
+  if (rows.length) cache.put('soxl-closes', JSON.stringify(rows), 600);
+  return rows;
 }
 
 // 앱에서 기록 저장(put) / 삭제(del)
@@ -65,3 +97,7 @@ function doPost(e) {
     return out_({ ok: true, count: rows.length });
   } finally { lock.releaseLock(); }
 }
+
+// 처음 한 번 실행: 외부 데이터(종가) 가져오기 권한 승인 + 동작 확인
+function 종가확인() { Logger.log(JSON.stringify(closes_().slice(-5))); }
+function 설정확인() { sheet_(); Logger.log('기록 시트 준비 완료'); }
