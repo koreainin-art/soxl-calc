@@ -183,7 +183,6 @@ dialog#lockDlg::backdrop{background:rgba(0,0,0,.45)}
     </div>
     <div class="tools">
       <button id="btnLock" type="button">🔒 잠금 설정</button>
-      <button id="btnExample" type="button">예시 불러오기 (8/13)</button>
       <button id="btnClear" type="button">전체 비우기</button>
     </div>
   </header>
@@ -483,7 +482,6 @@ const XLSX_SRC='./xlsx.full.min.js';
   $('form').addEventListener('focusout',e=>{norm(e.target);save()});
   $('btnPick').onclick=()=>{const p=$('datePick'),d=parse($('date').value);p.value=d?iso(d):'';try{p.showPicker()}catch(e){p.focus();p.click()}};
   $('datePick').addEventListener('change',e=>{const d=parse(e.target.value);if(d){$('date').value=dot(d);$('date').classList.remove('needs');save();calc()}});
-  $('btnExample').onclick=()=>{fill(EXAMPLE);save();calc();toast('2026.08.13 실제 기록으로 채웠습니다.')};
   $('wlClear').onclick=()=>{if(!confirm('대기 로트를 모두 비울까요?'))return;$('wl').value='[]';save();calc()};
   $('btnClear').onclick=()=>{fill({});save();calc();toast('입력값을 비웠습니다.')};
   $('btnCopy').onclick=()=>{
@@ -556,7 +554,7 @@ const XLSX_SRC='./xlsx.full.min.js';
     let st=0;for(let k=LOG.length-1;k>=0;k--){if(+LOG[k][1]===1&&(k===0||+LOG[k-1][1]!==1)){st=k;break}}
     const tot=LOG.slice(st).reduce((a,x)=>a+(x[21]||0),0),m=MUL();
     const cl=v=>`style="color:var(--${v<0?'buy':'ok'})"`;
-    const plBox=`<div class="plbox"><div class="pl"><span>누적 실현손익<br><small>${LOG[st]?LOG[st][0].replace(/-/g,'.')+' (1차)부터':''}</small></span><b ${cl(tot)}>${f2(tot)}</b></div><div class="pl"><span>배수 적용 손익 <small>(×${m})</small></span><b ${cl(tot*m)}>${f2(tot*m)}</b></div></div>`;
+    const plBox=`<div class="plbox"><div class="pl"><span>누적 실현손익<br><small>${LOG[st]?LOG[st][0].replace(/-/g,'.')+(+LOG[st][1]===1?' (1차)부터':' (첫 기록 · '+LOG[st][1]+'차)부터'):''}</small></span><b ${cl(tot)}>${f2(tot)}</b></div><div class="pl"><span>배수 적용 손익 <small>(×${m})</small></span><b ${cl(tot*m)}>${f2(tot*m)}</b></div></div>`;
     const rows=LOG.slice().reverse().map(x=>`<tr data-row="${x[0]}">${x.map(cell).join('')}<td><button type="button" class="del" data-d="${x[0]}" aria-label="${x[0]} 삭제">삭제</button></td></tr>`).join('');
     $('logBody').innerHTML=`${plBox}<p class="empty">최근 날짜가 위에 있습니다</p><div class="tblwrap"><table class="log"><thead><tr>${COLS.map(c=>`<th>${c}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
@@ -687,7 +685,7 @@ const XLSX_SRC='./xlsx.full.min.js';
 
   $('tabIn').onclick=()=>setTab('in');$('tabOut').onclick=()=>setTab('out');$('tabLog').onclick=()=>setTab('log');$('mbarBtn').onclick=()=>setTab('out');
   document.body.dataset.tab='in';
-  if(!load())fill(EXAMPLE);
+  if(!load())fill({});
   if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
   calc();
   setTimeout(autoClose,800);
