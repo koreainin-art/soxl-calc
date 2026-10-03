@@ -147,10 +147,9 @@ label .auto:empty{display:none}
 
 html[data-locked="1"] .wrap{visibility:hidden}
 .plbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:4px 0 10px;background:var(--panel);display:grid;gap:6px}
-.plbox .plh{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted)}
 .plbox .pl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline}
 .plbox .pl span{font-size:.85rem;color:var(--muted)}.plbox .pl b{font-size:1.05rem;text-align:right}
-.plbox .pl em{grid-column:2;font-style:normal;font-size:.85rem;text-align:right}
+.plbox .pl small{font-size:.75rem}
 
 #lockScr{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px}
 html[data-locked="1"] #lockScr{display:flex}
@@ -553,10 +552,11 @@ const XLSX_SRC='./xlsx.full.min.js';
   function renderLog(){
     $('logCount').textContent=LOG.length+'일';
     if(!LOG.length){$('logBody').innerHTML='<p class="empty">아직 저장된 기록이 없습니다. 주문 결과에서 "기록 저장"을 누르거나, 기존 기록 엑셀을 불러오세요.</p>';return}
-    const tot=LOG.reduce((a,x)=>a+(x[21]||0),0),lr=LOG[LOG.length-1],m=MUL();
-    const unr=lr&&lr[20]>0&&lr[15]>0?lr[20]*(lr[14]-lr[15]):0,sum=tot+unr;
-    const cl=v=>`style="color:var(--${v<0?'buy':'ok'})"`,cell2=(t,v,b)=>`<div class="pl"><span>${t}</span><b ${cl(v)}>${f2(v)}</b><em ${cl(v*m)}>×${m} → ${f2(v*m)}</em></div>`;
-    const plBox=`<div class="plbox"><div class="plh"><span>앱 기준(×1)</span><span>배수 ${m} 적용(실제 계좌)</span></div>${cell2('누적 실현손익',tot)}${cell2('현재 평가손익'+(lr&&lr[20]>0?' ('+fi(lr[20])+'주, '+lr[0].replace(/-/g,'.')+' 기준)':''),unr)}${cell2('합계',sum)}</div>`;
+    // 누적 실현손익: 가장 최근에 1차로 시작한 지점부터 합산 (1차로 돌아가면 초기화)
+    let st=0;for(let k=LOG.length-1;k>=0;k--){if(+LOG[k][1]===1&&(k===0||+LOG[k-1][1]!==1)){st=k;break}}
+    const tot=LOG.slice(st).reduce((a,x)=>a+(x[21]||0),0),m=MUL();
+    const cl=v=>`style="color:var(--${v<0?'buy':'ok'})"`;
+    const plBox=`<div class="plbox"><div class="pl"><span>누적 실현손익<br><small>${LOG[st]?LOG[st][0].replace(/-/g,'.')+' (1차)부터':''}</small></span><b ${cl(tot)}>${f2(tot)}</b></div><div class="pl"><span>배수 적용 손익 <small>(×${m})</small></span><b ${cl(tot*m)}>${f2(tot*m)}</b></div></div>`;
     const rows=LOG.slice().reverse().map(x=>`<tr data-row="${x[0]}">${x.map(cell).join('')}<td><button type="button" class="del" data-d="${x[0]}" aria-label="${x[0]} 삭제">삭제</button></td></tr>`).join('');
     $('logBody').innerHTML=`${plBox}<p class="empty">최근 날짜가 위에 있습니다</p><div class="tblwrap"><table class="log"><thead><tr>${COLS.map(c=>`<th>${c}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
